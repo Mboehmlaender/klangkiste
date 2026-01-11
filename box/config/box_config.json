@@ -1,0 +1,35 @@
+{
+  "box_id": "box-0001",
+  "settings": {
+    "max_volume": 80,
+    "default_volume": 40
+  },
+  "tags": {
+    "UID_1": {
+      "type": "folder",
+      "path": "../media/book_1"
+    },
+    "UID_2": {
+      "type": "folder",
+      "path": "../media/book_2"
+    },
+    "UID_3": {
+      "type": "folder",
+      "path": "../media/book_3"
+    },
+    "UID_4": {
+      "type": "folder",
+      "path": "../media/book_4"
+    },
+    "UID_5": {
+      "type": "folder",
+      "path": "../media/book_5"
+    }
+  },
+  "resume": {
+    "UID_1": {
+      "file_index": 0,
+      "position": 50
+    }
+  }
+}

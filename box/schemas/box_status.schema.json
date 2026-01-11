@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://klangkiste.local/schemas/box_status.schema.json",
+  "title": "BoxStatus",
+  "type": "object",
+  "required": ["box_id", "state", "current_media", "volume"],
+  "properties": {
+    "box_id": {"type": "string"},
+    "state": {"type": "string", "enum": ["IDLE", "PLAYING", "PAUSED"]},
+    "current_media": {"type": ["string", "null"]},
+    "volume": {"type": "integer", "minimum": 0, "maximum": 100}
+  },
+  "additionalProperties": false
+}
