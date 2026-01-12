@@ -14,7 +14,7 @@ Use the tests below in order or individually.
 
 ---
 
-## Test A: Box Start & box_id
+## Test A: Box-Start & Identitaet (box_id)
 
 1) Goal
 - Verify box_id is created once and persists.
@@ -51,7 +51,7 @@ cat box/data/box.json
 
 ---
 
-## Test B: WLAN Ersteinrichtung (Setup WebGUI)
+## Test B: WLAN-Ersteinrichtung (Setup WebGUI)
 
 1) Goal
 - Configure WiFi profile via setup UI and reach WIFI_ONLINE.
@@ -175,7 +175,7 @@ curl -X POST http://127.0.0.1:8000/command \
 
 ---
 
-## Test E: GUI Steuerung
+## Test E: GUI-Steuerung
 
 1) Goal
 - Verify GUI can control playback and display status.
@@ -288,7 +288,7 @@ curl http://127.0.0.1:8000/status
 
 ---
 
-## Test I: Offline Scenarios
+## Test I: Offline-Szenarien (Box intern)
 
 1) Goal
 - Verify WiFi and Spotify states in offline/online flows.
@@ -322,7 +322,7 @@ curl -X POST http://127.0.0.1:8000/command \
 
 ---
 
-## Test J: Fehlerfälle
+## Test J: Fehlerfaelle (Box intern)
 
 1) Goal
 - Verify error sound and error reporting.
@@ -348,3 +348,213 @@ curl -X POST http://127.0.0.1:8000/command \
 
 6) Deviations / Troubleshooting
 - No error shown: verify `/status` and that errors are not cleared automatically.
+
+---
+
+## Test K: Announce -> neue Box erscheint im Server
+
+1) Ziel
+- Box meldet sich beim Server und erscheint als UNPAIRED / neue Box.
+
+2) Voraussetzungen
+- Simulation: Server-Komponente vorhanden und laeuft.
+- Real Box: Server erreichbar im Netzwerk.
+
+3) Durchfuehrung – Simulation / Emulation
+- Nicht testbar mit aktuellem Code: Box sendet keine Announce-Requests.
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Nicht testbar mit aktuellem Code: Announce-Logik ist nicht implementiert.
+
+5) Erwartetes Ergebnis
+- Nicht testbar mit aktuellem Code.
+
+6) Abweichungen / Fehlersuche
+- Wenn implementiert: Pruefe Server-Logs, API-Endpunkte und Box-Statusfelder.
+
+---
+
+## Test L: Mehrere Boxen gleichzeitig
+
+1) Ziel
+- Mehrere Boxen werden als separate, unbekannte Boxen erkannt.
+
+2) Voraussetzungen
+- Simulation: Mehrere Box-Prozesse mit unterschiedlichen `box_id`.
+
+3) Durchfuehrung – Simulation / Emulation
+- Nicht testbar mit aktuellem Code: Announce/Server-Erkennung fehlt.
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Nicht testbar mit aktuellem Code.
+
+5) Erwartetes Ergebnis
+- Nicht testbar mit aktuellem Code.
+
+6) Abweichungen / Fehlersuche
+- Wenn implementiert: Pruefe Duplikate anhand `box_id` und `fingerprint`.
+
+---
+
+## Test M: Pairing-Freigabe ueber Server-GUI
+
+1) Ziel
+- Box wird nach Freigabe gepairt und erhaelt API-Token.
+
+2) Voraussetzungen
+- Simulation: Server-GUI und Pairing-Endpunkte implementiert.
+
+3) Durchfuehrung – Simulation / Emulation
+- Nicht testbar mit aktuellem Code: Pairing-Flow fehlt.
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Nicht testbar mit aktuellem Code.
+
+5) Erwartetes Ergebnis
+- Nicht testbar mit aktuellem Code.
+
+6) Abweichungen / Fehlersuche
+- Wenn implementiert: Pruefe Token-Speicherung in `box/data/secrets.enc`.
+
+---
+
+## Test N: Verhalten vor Pairing (keine Steuerung erlaubt)
+
+1) Ziel
+- Vor Pairing sind Steuerbefehle blockiert.
+
+2) Voraussetzungen
+- Server-Integration und Auth-Checks vorhanden.
+
+3) Durchfuehrung – Simulation / Emulation
+- Nicht testbar mit aktuellem Code: kein Auth/Pairing implementiert.
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Nicht testbar mit aktuellem Code.
+
+5) Erwartetes Ergebnis
+- Nicht testbar mit aktuellem Code.
+
+6) Abweichungen / Fehlersuche
+- Wenn implementiert: Pruefe API-Responses (401/403) und Server-Logs.
+
+---
+
+## Test O: Verhalten nach Pairing
+
+1) Ziel
+- Nach Pairing sind Steuerbefehle erlaubt und Box reagiert.
+
+2) Voraussetzungen
+- Pairing-Flow implementiert.
+
+3) Durchfuehrung – Simulation / Emulation
+- Nicht testbar mit aktuellem Code.
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Nicht testbar mit aktuellem Code.
+
+5) Erwartetes Ergebnis
+- Nicht testbar mit aktuellem Code.
+
+6) Abweichungen / Fehlersuche
+- Wenn implementiert: Pruefe Token in `secrets.enc` und Server-GUI Status.
+
+---
+
+## Test P: Neustart vor/nach Pairing
+
+1) Ziel
+- Box behaelt Pairing-Status und Token ueber Neustarts.
+
+2) Voraussetzungen
+- Pairing implementiert.
+
+3) Durchfuehrung – Simulation / Emulation
+- Nicht testbar mit aktuellem Code.
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Nicht testbar mit aktuellem Code.
+
+5) Erwartetes Ergebnis
+- Nicht testbar mit aktuellem Code.
+
+6) Abweichungen / Fehlersuche
+- Wenn implementiert: Pruefe `secrets.enc` vor/nach Neustart.
+
+---
+
+## Test Q: Factory Reset -> neue Identitaet
+
+1) Ziel
+- Factory Reset loescht box_id und erzeugt neue Identitaet beim naechsten Start.
+
+2) Voraussetzungen
+- Box laeuft einmalig und `box/data/` existiert.
+
+3) Durchfuehrung – Simulation / Emulation
+- Stoppe Box.
+- Loesche folgende Dateien:
+```
+rm -f box/data/box.json box/data/state.json box/data/secrets.enc
+```
+- Starte Box neu:
+```
+python3 box/main.py run
+```
+- Pruefe `/status`.
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Nicht testbar mit aktuellem Code: kein Factory-Reset-Mechanismus implementiert.
+
+5) Erwartetes Ergebnis
+- Neue `box_id` erscheint in `/status`.
+
+6) Abweichungen / Fehlersuche
+- `box_id` bleibt gleich: Dateien wurden nicht geloescht.
+
+---
+
+## Test R: Offline / Server nicht erreichbar
+
+1) Ziel
+- Box laeuft weiter, wenn Server nicht erreichbar ist.
+
+2) Voraussetzungen
+- Server-Integration implementiert.
+
+3) Durchfuehrung – Simulation / Emulation
+- Nicht testbar mit aktuellem Code: keine Server-Kommunikation.
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Nicht testbar mit aktuellem Code.
+
+5) Erwartetes Ergebnis
+- Nicht testbar mit aktuellem Code.
+
+6) Abweichungen / Fehlersuche
+- Wenn implementiert: pruefe lokale Funktionen (Playback, NFC) laufen weiter.
+
+---
+
+## Test S: Simulation vs. Hardware – Unterschiede
+
+1) Ziel
+- Dokumentiere, was real vs. mock ist.
+
+2) Voraussetzungen
+- Box laeuft in Simulation.
+
+3) Durchfuehrung – Simulation / Emulation
+- Beachte: WiFi/IP/Spotify/Audio sind Mock.
+- Setup UI und API funktionieren lokal.
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Nicht testbar mit aktuellem Code: Hardware-Backends fehlen.
+
+5) Erwartetes Ergebnis
+- Simulation laeuft ohne Hardware.
+- Hardware-Backends koennen spaeter ersetzt werden.
+
+6) Abweichungen / Fehlersuche
+- Wenn Hardware genutzt wird, fehlen Implementierungen.

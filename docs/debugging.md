@@ -44,6 +44,18 @@ cat box/data/state.json
 - Check port 9000 free.
 - Ensure Box is running.
 
+### If box not recognized by server
+- Not testable with current code: no announce/pairing implemented.
+
+### If box appears multiple times
+- Not testable with current code: no announce/pairing implemented.
+
+### If fingerprint changes
+- Not testable with current code: fingerprint not implemented.
+
+### If pairing hangs
+- Not testable with current code: pairing flow not implemented.
+
 ## Real Box (Hardware)
 ### If device not reachable in browser
 - Ensure it is powered on and connected to the same network.
@@ -56,6 +68,18 @@ cat box/data/state.json
 ### If audio is silent
 - Audio backend is mock in current code.
 - Not testable with current code.
+
+### If box not recognized by server
+- Not testable with current code: no announce/pairing implemented.
+
+### If box appears multiple times
+- Not testable with current code: no announce/pairing implemented.
+
+### If fingerprint changes
+- Not testable with current code: fingerprint not implemented.
+
+### If pairing hangs
+- Not testable with current code: pairing flow not implemented.
 
 ## Files to inspect
 - `box/data/box.json`: identity, tags, settings

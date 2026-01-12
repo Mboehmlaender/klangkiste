@@ -52,5 +52,7 @@ curl -X POST http://127.0.0.1:8000/command \
 - Offline scenarios: `docs/offline-scenarios.md`
 - Security & storage: `docs/security-storage.md`
 - CLI reference: `docs/cli.md`
+- Acceptance tests: `docs/acceptance-tests.md`
+- Debugging guide: `docs/debugging.md`
 - Virtual box notes: `docs/virtual-box.md`
 - Legacy storage notes: `docs/storage.md`
