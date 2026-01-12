@@ -1,40 +1,43 @@
-# Setup WebGUI
+# Setup-WebGUI
 
-## Purpose
-Configure WiFi profiles in the virtual box without touching the API or CLI.
+## Zweck
+WLAN-Profile in der virtuellen Box konfigurieren, ohne CLI oder API.
 
-## Prerequisites
-- Box running: `python3 box/main.py run`
+## Voraussetzungen
+- Box laeuft: `python3 box/main.py run`
 
-## Step-by-step
-1) Open the Setup UI:
+## Schritt-fuer-Schritt
+1) Setup-UI oeffnen:
 ```
 http://127.0.0.1:9000/setup
 ```
-2) Choose SSID and enter password.
-3) Click "Verbinden".
-4) Refresh `/status` to see `wifi_state` and `connected_ssid`.
+2) SSID auswaehlen, Passwort eingeben.
+3) "Verbinden" klicken.
+4) Status pruefen:
+```
+curl http://127.0.0.1:8000/status
+```
 
-## Fields
-- SSID: drop-down from mock scan
-- Password: free text
+## Felder
+- SSID: Dropdown aus dem Mock-Scan
+- Passwort: Freitext
 
-## Expected results
-- WiFi profile is saved (encrypted)
-- `wifi_state` becomes `WIFI_ONLINE`
-- `connected_ssid` matches selected SSID
+## Erwartete Ergebnisse
+- WLAN-Profil wird verschluesselt gespeichert
+- `wifi_state` wird `WIFI_ONLINE`
+- `connected_ssid` passt zur Auswahl
 
-## Checklist
-- ✅ Setup UI loads
-- ✅ Submit stores a profile
-- ✅ `/status` reflects `WIFI_ONLINE`
+## Checkliste
+- ✅ Setup-UI laedt
+- ✅ Submit speichert Profil
+- ✅ `/status` zeigt `WIFI_ONLINE`
 
 ## Troubleshooting
-- Setup UI not reachable:
-  - Ensure Box is running and port `9000` is free.
-- Submit does nothing:
-  - Check Box logs for errors; secrets file must be writable.
+- Setup-UI nicht erreichbar:
+  - Port 9000 frei? Box laeuft?
+- Submit ohne Wirkung:
+  - Logs pruefen, `box/data/secrets.enc` muss schreibbar sein.
 
-## Notes
-- Setup UI is write-enabled only when no profiles exist.
-- When profiles exist, the page switches to read-only status.
+## Hinweise
+- Setup-UI ist nur schreibend, wenn keine Profile existieren.
+- Bei vorhandenen Profilen ist die Seite read-only.

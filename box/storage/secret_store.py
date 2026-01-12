@@ -36,6 +36,35 @@ class SecretStore:
         token = fernet.encrypt(payload)
         self._path.write_bytes(token)
 
+    def ensure_secret_seed(self) -> str:
+        data = self.load_secrets()
+        seed = data.get("secret_seed")
+        if isinstance(seed, str) and seed:
+            return seed
+        seed_value = self._generate_seed()
+        data["secret_seed"] = seed_value
+        self.save_secrets(data)
+        return seed_value
+
+    def get_secret_seed(self) -> str | None:
+        data = self.load_secrets()
+        seed = data.get("secret_seed")
+        if isinstance(seed, str) and seed:
+            return seed
+        return None
+
+    def save_api_token(self, token: str) -> None:
+        data = self.load_secrets()
+        data["api_token"] = token
+        self.save_secrets(data)
+
+    def get_api_token(self) -> str | None:
+        data = self.load_secrets()
+        token = data.get("api_token")
+        if isinstance(token, str) and token:
+            return token
+        return None
+
     def clear_wifi_secrets(self) -> None:
         data = self.load_secrets()
         if "wifi_profiles" in data:
@@ -55,3 +84,9 @@ class SecretStore:
             dklen=32,
         )
         return base64.urlsafe_b64encode(raw)
+
+    @staticmethod
+    def _generate_seed() -> str:
+        import secrets
+
+        return secrets.token_hex(32)

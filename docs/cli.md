@@ -1,34 +1,34 @@
-# Box CLI Reference
+# CLI-Referenz
 
-## Purpose
-List all CLI interactions available in the virtual box.
+## Zweck
+Alle CLI-Interaktionen der virtuellen Box.
 
-## Prerequisites
-- Box code available in `box/`
+## Voraussetzungen
+- Box-Code in `box/`
 
-## Step-by-step
-### One-shot commands
+## Schritt-fuer-Schritt
+### One-shot Commands
 Status:
 ```
 python3 box/main.py status
 ```
 
-Simulate NFC:
+NFC simulieren:
 ```
 python3 box/main.py simulate-nfc UID_1
 python3 box/main.py simulate-nfc-off UID_1
 ```
 
-Manual tick:
+Manuelles Tick:
 ```
 python3 box/main.py tick 30
 ```
 
-### Interactive run mode
+### Interaktiver Run-Modus
 ```
 python3 box/main.py run
 ```
-Commands inside run mode:
+Commands im Run-Modus:
 ```
 status
 nfc <UID>
@@ -43,13 +43,13 @@ help
 exit | quit
 ```
 
-## Checklist
-- ✅ `status` prints runtime state
-- ✅ `simulate-nfc` starts playback
-- ✅ `run` accepts interactive commands
+## Checkliste
+- ✅ `status` gibt Runtime-State aus
+- ✅ `simulate-nfc` startet Playback
+- ✅ `run` akzeptiert interaktive Commands
 
 ## Troubleshooting
-- Commands not found:
-  - Ensure you run from repo root or use full path to `box/main.py`.
-- No playback:
-  - Check tags in `box/data/box.json` and media under `box/data/media`.
+- Commands nicht gefunden:
+  - Aus Repo-Root ausfuehren oder `box/main.py` voll referenzieren.
+- Kein Playback:
+  - Tags in `box/data/box.json` und Medien in `box/data/media` pruefen.

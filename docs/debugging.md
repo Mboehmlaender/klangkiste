@@ -1,99 +1,98 @@
-# Debugging Guide
+# Debugging-Guide
 
-## Purpose
-Fast diagnosis guide: "If X happens, check Y" with separate paths for Simulation and Real Box.
+## Zweck
+Schnelle Diagnose: "Wenn X passiert, pruefe Y" getrennt nach Simulation und Hardware.
 
-## Prerequisites
-- Box running (simulation or device)
-- Access to `/status` and data files
+## Voraussetzungen
+- Box laeuft (Simulation oder Hardware)
+- Zugriff auf `/status` und Datenfiles
 
-## Step-by-step
-Use the sections below by symptom.
+## Schritt-fuer-Schritt
+Nutze die Sektionen nach Symptomen.
 
 ## Simulation (IDE)
-### If GUI shows "Failed to fetch"
-- Check API is running:
+### GUI zeigt "Failed to fetch"
+- API pruefen:
 ```
 curl http://127.0.0.1:8000/status
 ```
-- Verify GUI API base:
-  - `VITE_BOX_API_URL` or default `http://localhost:8000`
+- GUI API-Base pruefen:
+  - `VITE_BOX_API_URL` oder Default `http://localhost:8000`
 
-### If playback does not start
-- Check tags:
+### Playback startet nicht
+- Tags pruefen:
 ```
 cat box/data/box.json
 ```
-- Check media files:
+- Medien pruefen:
 ```
 ls -la box/data/media
 ```
-- Check `/status`:
+- Status pruefen:
 ```
 curl http://127.0.0.1:8000/status
 ```
 
-### If resume does not persist
-- Check state file:
+### Resume bleibt leer
+- State pruefen:
 ```
 cat box/data/state.json
 ```
-- Ensure playback was stopped via `nfc_off` or end-of-media.
+- Playback mit `nfc_off` beenden.
 
-### If setup UI not reachable
-- Check port 9000 free.
-- Ensure Box is running.
+### Setup UI nicht erreichbar
+- Port 9000 frei?
+- Box laeuft?
 
-### If box not recognized by server
-- Not testable with current code: no announce/pairing implemented.
+### Box wird nicht erkannt (Server)
+- Server-URL in `box/data/box.json` pruefen (`server_url`).
+- Server laeuft auf Port 7000?
+- `server/data/boxes.json` pruefen.
 
-### If box appears multiple times
-- Not testable with current code: no announce/pairing implemented.
+### Box erscheint mehrfach
+- `box_id` in `box/data/box.json` pruefen.
+- Factory-Reset nur gezielt ausfuehren.
 
-### If fingerprint changes
-- Not testable with current code: fingerprint not implemented.
+### Fingerprint aendert sich
+- `secret_seed` in `box/data/secrets.enc` darf sich nicht aendern.
+- `box/data/box.json` darf nicht geloescht werden.
 
-### If pairing hangs
-- Not testable with current code: pairing flow not implemented.
+### Pairing haengt
+- `server/data/boxes.json` pruefen: state, api_token.
+- Box-Status: `pairing_state` in `/status` pruefen.
 
-## Real Box (Hardware)
-### If device not reachable in browser
-- Ensure it is powered on and connected to the same network.
-- Check the IP shown by your router.
+## Reale Box (Hardware)
+### Box nicht im Browser erreichbar
+- Stromversorgung ok?
+- Im gleichen Netzwerk?
+- Router-IP pruefen.
 
-### If NFC does nothing
-- Confirm tag UID exists in `box.json`.
-- Confirm NFC hardware is working (not implemented in code).
+### NFC reagiert nicht
+- UID in `box.json` vorhanden?
+- NFC-Hardware (nicht implementiert) pruefen.
 
-### If audio is silent
-- Audio backend is mock in current code.
-- Not testable with current code.
+### Audio bleibt stumm
+- Audio-Backend ist Mock im aktuellen Code.
+- Nicht testbar mit aktuellem Code.
 
-### If box not recognized by server
-- Not testable with current code: no announce/pairing implemented.
+### Box wird nicht erkannt / erscheint mehrfach / Fingerprint wechselt / Pairing haengt
+- Server-GUI (`/ui`) pruefen.
+- Box-IP/Server-IP/VLAN pruefen.
+- Box-Logs pruefen.
 
-### If box appears multiple times
-- Not testable with current code: no announce/pairing implemented.
+## Files
+- `box/data/box.json`: Identitaet, Tags, Settings
+- `box/data/state.json`: Resume und WiFi-State
+- `box/data/secrets.enc`: verschluesselte Secrets
 
-### If fingerprint changes
-- Not testable with current code: fingerprint not implemented.
-
-### If pairing hangs
-- Not testable with current code: pairing flow not implemented.
-
-## Files to inspect
-- `box/data/box.json`: identity, tags, settings
-- `box/data/state.json`: resume and wifi state
-- `box/data/secrets.enc`: encrypted secrets
-
-## Status fields to watch
+## Statusfelder
 - `wifi_state`, `ip_address`, `connected_ssid`
 - `playback_state.state`, `playback_state.active_uid`
 - `playback_state.position`, `playback_state.file_index`
 - `playback_state.last_error`
 
 ## Troubleshooting
-- 400 from `/command`:
-  - Check required payload fields in `docs/api.md`.
-- No change after command:
-  - Poll `/status` after sending.
+- 400 von `/command`:
+  - Payload pruefen (Pflichtfelder).
+- Keine Aenderung nach Command:
+  - `/status` danach erneut abrufen.

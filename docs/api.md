@@ -1,19 +1,19 @@
 # Box HTTP API
 
-## Purpose
-Defines the stable contract between the GUI/CLI and the Box.
-The Box is authoritative; the client only sends commands and reads status.
+## Zweck
+Stabiler Vertrag zwischen GUI/CLI und Box.
+Die Box ist autoritativ, der Client sendet nur Commands und liest Status.
 
-## Prerequisites
-- Box running on `http://127.0.0.1:8000`
+## Voraussetzungen
+- Box laeuft auf `http://127.0.0.1:8000`
 
-## Step-by-step
+## Schritt-fuer-Schritt
 ### Status
 ```
 curl http://127.0.0.1:8000/status
 ```
 
-### Command (example)
+### Command (Beispiel)
 ```
 curl -X POST http://127.0.0.1:8000/command \
   -H "Content-Type: application/json" \
@@ -21,12 +21,13 @@ curl -X POST http://127.0.0.1:8000/command \
 ```
 
 ## GET /status
-Response fields:
-- `box_id`: unique device ID
+Felder:
+- `box_id`: eindeutige Box-ID
+- `pairing_state`: `UNPAIRED | PAIRING_PENDING | PAIRED`
 - `wifi_state`: `WIFI_UNCONFIGURED | WIFI_CONNECTING | WIFI_ONLINE | WIFI_OFFLINE`
-- `ip_address`: simulated IP (`192.168.4.1` or `127.0.0.1`)
-- `connected_ssid`: connected SSID or `null`
-- `wifi_profiles_count`: number of stored profiles
+- `ip_address`: simulierte IP (`192.168.4.1` oder `127.0.0.1`)
+- `connected_ssid`: verbundene SSID oder `null`
+- `wifi_profiles_count`: Anzahl gespeicherter Profile
 - `spotify_status`: `NOT_CONFIGURED | READY`
 - `playback_state`:
   - `state`: `IDLE | PLAYING | PAUSED`
@@ -39,10 +40,11 @@ Response fields:
   - `volume`
   - `last_error`
 
-Example response:
+Beispielantwort:
 ```
 {
   "box_id": "klangkiste-a9f3k7m2q8",
+  "pairing_state": "UNPAIRED",
   "wifi_state": "WIFI_ONLINE",
   "ip_address": "127.0.0.1",
   "connected_ssid": "HomeWiFi",
@@ -63,7 +65,7 @@ Example response:
 ```
 
 ## POST /command
-Request body:
+Request Body:
 ```
 {
   "command": "nfc_on",
@@ -71,7 +73,7 @@ Request body:
 }
 ```
 
-Supported commands:
+Unterstuetzte Commands:
 - `nfc_on` `{ uid }`
 - `nfc_off` `{ uid }`
 - `play_pause`
@@ -79,8 +81,8 @@ Supported commands:
 - `prev`
 - `volume_up`
 - `volume_down`
-- `vol_up` (alias)
-- `vol_down` (alias)
+- `vol_up` (Alias)
+- `vol_down` (Alias)
 - `stop`
 - `trigger_error` `{ type }`
 - `wifi_add_profile` `{ ssid, password, priority? }`
@@ -88,27 +90,39 @@ Supported commands:
 - `spotify_set_tokens` `{ access_token, refresh_token, expires_at, account_id? }`
 - `spotify_clear`
 
-Example: add WiFi profile
+## Auth fuer Commands
+- Vor Pairing sind nur diese Commands erlaubt:
+  - `wifi_add_profile`, `wifi_reset`, `spotify_set_tokens`, `spotify_clear`
+- Alle anderen Commands erfordern `X-API-Token` im Header.
+
+Beispiel mit Token:\n```
+curl -X POST http://127.0.0.1:8000/command \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Token: <api_token>" \\
+  -d '{"command":"nfc_on","payload":{"uid":"UID_1"}}'
+```
+
+Beispiel: WLAN-Profil hinzufuegen
 ```
 curl -X POST http://127.0.0.1:8000/command \
   -H "Content-Type: application/json" \
   -d '{"command":"wifi_add_profile","payload":{"ssid":"HomeWiFi","password":"secret","priority":10}}'
 ```
 
-Example: set Spotify tokens
+Beispiel: Spotify Tokens setzen
 ```
 curl -X POST http://127.0.0.1:8000/command \
   -H "Content-Type: application/json" \
   -d '{"command":"spotify_set_tokens","payload":{"access_token":"a","refresh_token":"b","expires_at":123}}'
 ```
 
-## Checklist
-- ✅ `GET /status` returns JSON
-- ✅ `POST /command` returns `{ "ok": true }`
-- ✅ No secrets appear in `/status`
+## Checkliste
+- ✅ `GET /status` liefert JSON
+- ✅ `POST /command` liefert `{ "ok": true }`
+- ✅ Keine Secrets in `/status`
 
 ## Troubleshooting
-- 400 responses:
-  - Check required fields in the payload.
-- CORS errors:
-  - Ensure Box API is running on the expected host/port.
+- 400 Responses:
+  - Payload pruefen (Pflichtfelder).
+- CORS-Fehler:
+  - API muss laufen und erreichbar sein.

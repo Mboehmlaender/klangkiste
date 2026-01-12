@@ -1,0 +1,14 @@
+{
+  "wifi": {
+    "connected_ssid": null
+  },
+  "resume": {
+    "UID_1": {
+      "file_index": 1,
+      "position": 79
+    }
+  },
+  "pairing": {
+    "state": "PAIRING_PENDING"
+  }
+}

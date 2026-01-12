@@ -1,42 +1,47 @@
-# Box Lifecycle
+# Box-Lifecycle
 
-## Purpose
-Defines the virtual box lifecycle: identity, WiFi states, and restart behavior.
+## Zweck
+Definiert Identitaet, WLAN-Status und Neustartverhalten der virtuellen Box.
 
-## Prerequisites
-- Box started with `python3 box/main.py run`
+## Voraussetzungen
+- Box gestartet mit `python3 box/main.py run`
 
-## Step-by-step
-### Box identity
-- Generated on first start if `box/data/box.json` has no `box_id`.
-- Format: `klangkiste-<10 chars a-z0-9>`
-- Stored in `box/data/box.json`
+## Schritt-fuer-Schritt
+### Box-Identitaet
+- Wird beim ersten Start erzeugt, wenn `box/data/box.json` keine `box_id` enthaelt.
+- Format: `klangkiste-<10 Zeichen a-z0-9>`
+- Persistiert in `box/data/box.json`
 
-### WiFi states (logical)
-- `WIFI_UNCONFIGURED`: no profiles stored
-- `WIFI_CONNECTING`: reserved for future; not emitted in mock
-- `WIFI_ONLINE`: profile exists and mock is "connected"
-- `WIFI_OFFLINE`: profile exists but not connected
+### WLAN-Zustaende (logisch)
+- `WIFI_UNCONFIGURED`: keine Profile gespeichert
+- `WIFI_CONNECTING`: reserviert fuer spaeter (im Mock nicht aktiv)
+- `WIFI_ONLINE`: Profil vorhanden und verbunden
+- `WIFI_OFFLINE`: Profil vorhanden, aber nicht verbunden
 
-### IP model (informational)
-- Setup/AP mode: `192.168.4.1`
-- Normal mode: `127.0.0.1`
+### IP-Modell (informativ)
+- Setup/AP-Modus: `192.168.4.1`
+- Normalbetrieb: `127.0.0.1`
 
-### Restart behavior
-- Box reloads `box_id`, resume state, and WiFi profiles from `box/data/`
-- Playback resume and WiFi status are preserved
+### Neustartverhalten
+- Box laedt `box_id`, Resume-State und WLAN-Profile aus `box/data/`
+- Resume und WLAN-Status bleiben erhalten
 
 ### Resets
-- WiFi reset: clears WiFi profiles only (`wifi_reset` command)
-- Factory reset: delete `box/data/box.json`, `box/data/state.json`, `box/data/secrets.enc`
+- WLAN-Reset: nur WLAN-Profile loeschen (`wifi_reset`)
+- Factory-Reset: `box/data/box.json`, `box/data/state.json`, `box/data/secrets.enc` loeschen
 
-## Checklist
-- ✅ After first boot, `box/data/box.json` contains `box_id`
-- ✅ `GET /status` returns `wifi_state` and `ip_address`
-- ✅ WiFi reset clears profiles, `wifi_state=WIFI_UNCONFIGURED`
+### Pairing-Status
+- `UNPAIRED`: Box ist nicht gekoppelt
+- `PAIRING_PENDING`: Box pollt Pairing-Status beim Server
+- `PAIRED`: Box ist gekoppelt, API-Token vorhanden
+
+## Checkliste
+- ✅ Nach erstem Start existiert `box/data/box.json` mit `box_id`
+- ✅ `GET /status` liefert `wifi_state` und `ip_address`
+- ✅ WLAN-Reset setzt `wifi_state=WIFI_UNCONFIGURED`
 
 ## Troubleshooting
-- `wifi_state` not changing:
-  - Add a WiFi profile via setup UI or API.
-- Missing `box_id`:
-  - Ensure `box/data/box.json` is writable.
+- `wifi_state` aendert sich nicht:
+  - WLAN-Profil via Setup UI oder API hinzufuegen.
+- `box_id` fehlt:
+  - Schreibrechte fuer `box/data/box.json` pruefen.

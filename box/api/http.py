@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from core.box_controller import BoxController
 from core.lifecycle import NetworkLifecycle
+from core.pairing import PairingManager, PairingState
 from spotify.base import SpotifyBackend
 from wifi.base import WifiBackend
 
@@ -24,6 +25,7 @@ def create_app(
     lifecycle: NetworkLifecycle,
     wifi_backend: WifiBackend,
     spotify_backend: SpotifyBackend,
+    pairing_manager: PairingManager,
     persist_state: Callable[[], None],
 ) -> FastAPI:
     app = FastAPI()
@@ -40,6 +42,7 @@ def create_app(
         state = controller.state
         return {
             "box_id": state.box_id,
+            "pairing_state": pairing_manager.state.value,
             "wifi_state": snapshot.wifi_state.value,
             "ip_address": snapshot.ip_address,
             "connected_ssid": snapshot.connected_ssid,
@@ -59,9 +62,12 @@ def create_app(
         }
 
     @app.post("/command")
-    def command(request: CommandRequest) -> dict[str, Any]:
+    def command(request: CommandRequest, http_request: Request) -> dict[str, Any]:
         cmd = request.command
         payload = request.payload or {}
+
+        if _requires_pairing(cmd) and not _is_authorized(pairing_manager, http_request):
+            raise HTTPException(status_code=403, detail="pairing required")
 
         if cmd == "nfc_on":
             uid = payload.get("uid")
@@ -125,3 +131,25 @@ def create_app(
         return {"ok": True}
 
     return app
+
+
+def _requires_pairing(command: str) -> bool:
+    allowed_without_pairing = {
+        "wifi_add_profile",
+        "wifi_reset",
+        "spotify_set_tokens",
+        "spotify_clear",
+    }
+    return command not in allowed_without_pairing
+
+
+def _is_authorized(pairing: PairingManager, http_request: Request) -> bool:
+    if not pairing.is_paired():
+        return False
+    token = pairing.get_api_token()
+    if not token:
+        return False
+    header = http_request.headers.get("X-API-Token")
+    if not header:
+        return False
+    return header == token

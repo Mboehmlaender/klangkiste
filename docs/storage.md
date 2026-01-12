@@ -1,13 +1,13 @@
-# Storage (Legacy Notes)
+# Storage (Legacy-Hinweis)
 
-## Purpose
-This file is kept for backward reference. Current storage documentation lives in `docs/security-storage.md`.
+## Zweck
+Dieses Dokument bleibt als Legacy-Hinweis bestehen. Die aktuelle Doku liegt in `docs/security-storage.md`.
 
-## Prerequisites
-- None
+## Voraussetzungen
+- Keine
 
-## Step-by-step
-- See `docs/security-storage.md`.
+## Schritt-fuer-Schritt
+- Siehe `docs/security-storage.md`.
 
 ## Troubleshooting
-- If you ended up here from older links, update them to `docs/security-storage.md`.
+- Falls Links hierher zeigen, bitte aktualisieren.

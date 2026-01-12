@@ -1,31 +1,31 @@
-# Klangkiste Dev Playbook
+# Klangkiste Dev-Playbook
 
-## Purpose
-This playbook documents the "virtual box" development environment. It is a complete, hardware-free simulation that runs entirely inside the repo and lets you test setup, playback, and API flows end-to-end.
+## Zweck
+Dieses Playbook dokumentiert die "virtuelle Box"-Entwicklungsumgebung. Es ist eine vollstaendige, hardwarefreie Simulation, die komplett im Repo laeuft und Setup-, Playback- und API-Flows end-to-end testbar macht.
 
-Docs live in the repo-level `docs/` to keep all dev guidance in one predictable place for both Box and GUI contributors.
+Die Doku liegt bewusst im Repo-weiten `docs/`-Ordner, damit Box- und GUI-Entwickler einen gemeinsamen Einstiegspunkt haben.
 
-## Prerequisites
+## Voraussetzungen
 - Python 3
 - Node.js + npm
-- From repo root
+- Aus dem Repo-Root ausfuehren
 
-## Step-by-step
-Quickstart (3-5 minutes):
-1) Start everything:
+## Schritt-fuer-Schritt
+Quickstart (3-5 Minuten):
+1) Alles starten:
 ```
 ./dev.sh
 ```
-2) Open the WiFi setup UI:
+2) Setup-WebGUI oeffnen:
 ```
 http://127.0.0.1:9000/setup
 ```
-3) Add a WiFi profile and submit.
-4) Check status:
+3) WLAN-Profil eintragen und speichern.
+4) Status pruefen:
 ```
 curl http://127.0.0.1:8000/status
 ```
-5) Start playback:
+5) Playback starten:
 ```
 curl -X POST http://127.0.0.1:8000/command \
   -H "Content-Type: application/json" \
@@ -33,26 +33,26 @@ curl -X POST http://127.0.0.1:8000/command \
 ```
 
 ## Troubleshooting
-- Box not starting:
-  - Ensure dependencies are installed and ports 8000/9000 are free.
-- GUI cannot reach API:
-  - Check `VITE_BOX_API_URL` and Box logs.
+- Box startet nicht:
+  - Pruefe Abhaengigkeiten und ob Ports 8000/9000 frei sind.
+- GUI erreicht API nicht:
+  - Pruefe `VITE_BOX_API_URL` und Box-Logs.
 
-## What Is Mock vs Real
-- Mock: WiFi, IP, Spotify, audio, hardware. These are logical simulations only.
-- Real: Box process, playback state machine, API, CLI, resume logic, media traversal.
+## Was ist Mock vs. real
+- Mock: WLAN, IP, Spotify, Audio, Hardware. Diese Backends sind logische Simulationen.
+- Real: Box-Prozess, Playback-State-Machine, API, CLI, Resume-Logik, Media-Traversal.
 
-## Link Index
-- Dev workflow: `docs/dev-workflow.md`
-- Box lifecycle: `docs/box-lifecycle.md`
-- Setup WebGUI: `docs/setup-webgui.md`
-- HTTP API contract: `docs/api.md`
-- GUI control panel: `docs/gui-control-panel.md`
-- Playback testing: `docs/playback-testing.md`
-- Offline scenarios: `docs/offline-scenarios.md`
-- Security & storage: `docs/security-storage.md`
-- CLI reference: `docs/cli.md`
-- Acceptance tests: `docs/acceptance-tests.md`
-- Debugging guide: `docs/debugging.md`
-- Virtual box notes: `docs/virtual-box.md`
-- Legacy storage notes: `docs/storage.md`
+## Link-Index
+- Dev-Workflow: `docs/dev-workflow.md`
+- Box-Lifecycle: `docs/box-lifecycle.md`
+- Setup-WebGUI: `docs/setup-webgui.md`
+- HTTP-API Vertrag: `docs/api.md`
+- GUI Control Panel: `docs/gui-control-panel.md`
+- Playback-Tests: `docs/playback-testing.md`
+- Offline-Szenarien: `docs/offline-scenarios.md`
+- Security & Storage: `docs/security-storage.md`
+- CLI-Referenz: `docs/cli.md`
+- Acceptance-Tests: `docs/acceptance-tests.md`
+- Debugging-Guide: `docs/debugging.md`
+- Virtual-Box-Notizen: `docs/virtual-box.md`
+- Legacy-Storage-Notizen: `docs/storage.md`

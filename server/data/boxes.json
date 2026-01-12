@@ -1,0 +1,15 @@
+{
+  "klangkiste-x1u8i4x5e4": {
+    "fingerprint": "ecfcaddfcdf73417c8b377cb807b006f7d0756ca717fda35f377e8d18b297c43",
+    "state": "UNPAIRED",
+    "first_seen": 1768244301,
+    "last_seen": 1768244591,
+    "firmware_version": "0.1.0",
+    "capabilities": {
+      "nfc": true,
+      "audio": true,
+      "spotify": true
+    },
+    "api_token": null
+  }
+}

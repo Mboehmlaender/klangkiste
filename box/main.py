@@ -13,9 +13,11 @@ from typing import Any
 import uvicorn
 
 from api.http import create_app
+from core.announce import AnnounceConfig, announce_loop, pairing_poll_loop
 from core.box_controller import BoxController
 from core.identity import generate_box_id
 from core.lifecycle import NetworkLifecycle
+from core.pairing import PairingManager
 from core.state import BoxState, RuntimeState
 from player.mock_player import MockPlayer
 from setup.webui import create_setup_app
@@ -35,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config",
         default="config/box_config.json",
-        help=\"Path to local box config JSON (legacy seed)\",
+        help="Path to local box config JSON (legacy seed)",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -137,6 +139,12 @@ def main() -> int:
             box_meta["tags"] = _normalize_tag_paths(legacy_config.get("tags", {}))
     if isinstance(box_meta.get("tags"), dict):
         box_meta["tags"] = _normalize_tag_paths(box_meta.get("tags", {}))
+    if "server_url" not in box_meta:
+        box_meta["server_url"] = os.getenv("KLANGKISTE_SERVER_URL", "http://127.0.0.1:7000")
+    if "firmware_version" not in box_meta:
+        box_meta["firmware_version"] = "0.1.0"
+    if "capabilities" not in box_meta:
+        box_meta["capabilities"] = {"nfc": True, "audio": True, "spotify": True}
     box_store.save(box_meta)
 
     state_store = StateStore(base_dir)
@@ -144,9 +152,11 @@ def main() -> int:
 
     state = _state_from_data(box_meta, state_data)
     secrets = SecretStore(base_dir, state.box_id)
+    secrets.ensure_secret_seed()
     wifi_backend = MockWifiBackend(state_store, secrets)
     spotify_backend = MockSpotifyBackend(secrets)
     lifecycle = NetworkLifecycle(wifi_backend)
+    pairing_manager = PairingManager(state_store, secrets)
     controller = BoxController(
         state=state,
         player=MockPlayer(),
@@ -177,15 +187,25 @@ def main() -> int:
         return 0
 
     if args.command == "run":
-        asyncio.run(
-            _run_with_api(
-                controller,
-                state_store,
-                lifecycle,
-                wifi_backend,
-                spotify_backend,
+        try:
+            asyncio.run(
+                _run_with_api(
+                    controller,
+                    state_store,
+                    lifecycle,
+                    wifi_backend,
+                    spotify_backend,
+                    pairing_manager,
+                    secrets,
+                    AnnounceConfig(
+                        server_url=str(box_meta.get("server_url")),
+                        firmware_version=str(box_meta.get("firmware_version")),
+                        capabilities=dict(box_meta.get("capabilities", {})),
+                    ),
+                )
             )
-        )
+        except KeyboardInterrupt:
+            return 0
         return 0
 
     return 0
@@ -213,12 +233,16 @@ async def _run_with_api(
     lifecycle: NetworkLifecycle,
     wifi_backend: MockWifiBackend,
     spotify_backend: MockSpotifyBackend,
+    pairing_manager: PairingManager,
+    secrets: SecretStore,
+    announce_config: AnnounceConfig,
 ) -> None:
     app = create_app(
         controller,
         lifecycle,
         wifi_backend,
         spotify_backend,
+        pairing_manager,
         lambda: _persist_resume(controller, storage),
     )
     api_server = uvicorn.Server(
@@ -234,7 +258,7 @@ async def _run_with_api(
     setup_server = uvicorn.Server(
         uvicorn.Config(
             setup_app,
-            host="127.0.0.1",
+            host="0.0.0.0",
             port=9000,
             log_level="warning",
             access_log=False,
@@ -243,6 +267,18 @@ async def _run_with_api(
     stop_event = asyncio.Event()
     tick_task = asyncio.create_task(
         _auto_tick_loop(controller, storage, stop_event)
+    )
+    announce_task = asyncio.create_task(
+        announce_loop(
+            controller.state.box_id,
+            secrets=secrets,
+            pairing=pairing_manager,
+            config=announce_config,
+            stop_event=stop_event,
+        )
+    )
+    poll_task = asyncio.create_task(
+        pairing_poll_loop(controller.state.box_id, pairing_manager, announce_config, stop_event)
     )
     api_task = asyncio.create_task(api_server.serve())
     setup_task = asyncio.create_task(setup_server.serve())
@@ -261,6 +297,12 @@ async def _run_with_api(
         tick_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await tick_task
+        announce_task.cancel()
+        poll_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await announce_task
+        with contextlib.suppress(asyncio.CancelledError):
+            await poll_task
         setup_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await setup_task

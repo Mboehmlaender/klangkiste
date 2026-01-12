@@ -1,60 +1,61 @@
 # Security & Storage
 
-## Purpose
-Explain where data lives, what is encrypted, and how keys are derived.
+## Zweck
+Beschreibt Datenablage, Verschluesselung und Key-Ableitung.
 
-## Prerequisites
-- Box running at least once to create `box/data/`
+## Voraussetzungen
+- Box mindestens einmal gestartet
 
-## Step-by-step
-1) Start the box:
+## Schritt-fuer-Schritt
+1) Box starten:
 ```
 python3 box/main.py run
 ```
-2) Inspect data files:
+2) Datenordner pruefen:
 ```
 ls -la box/data
 ```
 
-## Data layout
+## Datenstruktur
 ```
 box/data/
-├── box.json      # box_id, settings, tags (plaintext)
-├── state.json    # resume, wifi state (plaintext)
-├── media/        # audio files
-└── secrets.enc   # encrypted secrets (JSON inside)
+├── box.json      # box_id, settings, tags (Klartext)
+├── state.json    # resume, wifi state (Klartext)
+├── media/        # Audiodateien
+└── secrets.enc   # verschluesselte Secrets
 ```
 
-## What is plaintext
+## Klartext
 - box_id
-- box name
-- volume
-- resume positions
-- playback state
-- media paths
-- UI state
+- Box-Name
+- Lautstaerke
+- Resume-Positionen
+- Playback-State
+- Media-Pfade
+- UI-Zustaende
 
-## What is encrypted
-- WiFi profiles
-- Spotify tokens
-- Server tokens (future)
+## Verschluesselt
+- WLAN-Profile
+- Spotify Tokens
+- Server Tokens (api_token)
+- secret_seed (Fingerprint-Seed)
 
-## Key derivation
+## Key-Ableitung
 - Key = PBKDF2-HMAC-SHA256(box_id + STATIC_SALT)
-- Key is never stored on disk
-- secrets.enc is not portable between boxes
+- Key wird nie gespeichert
+- secrets.enc ist nicht zwischen Boxen austauschbar
 
-## Reset behavior
-- WiFi reset: removes only wifi_profiles from secrets.enc
-- Factory reset: delete `box/data/box.json`, `box/data/state.json`, `box/data/secrets.enc`
+## Reset-Verhalten
+- WLAN-Reset: nur wifi_profiles entfernen
+- Factory-Reset: `box/data/box.json`, `box/data/state.json`, `box/data/secrets.enc` loeschen
 
-## Checklist
-- ✅ `secrets.enc` exists after WiFi/Spotify set
-- ✅ `box.json` contains `box_id`
-- ✅ No secrets appear in `/status`
+## Checkliste
+- ✅ `secrets.enc` existiert nach WiFi/Spotify set
+- ✅ `box.json` enthaelt `box_id`
+- ✅ Keine Secrets in `/status`
 
 ## Troubleshooting
-- secrets.enc not created:
-  - Ensure you ran `wifi_add_profile` or `spotify_set_tokens`.
-- secrets.enc unreadable after reset:
-  - Factory reset creates a new box_id and new key.
+- secrets.enc fehlt:
+  - WiFi/Spotify set ausfuehren.
+- secrets.enc unlesbar nach Reset:
+  - Neue box_id erzeugt neuen Key.

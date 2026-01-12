@@ -1,22 +1,22 @@
-# Virtual Box Flow (IDE)
+# Virtuelle Box (IDE)
 
-## Purpose
-Describe the full, hardware-free box lifecycle used in development.
+## Zweck
+Beschreibt den vollstaendigen, hardwarefreien Box-Flow fuer die IDE.
 
-## Prerequisites
+## Voraussetzungen
 - Python 3
-- Box started with `python3 box/main.py run`
+- Box gestartet mit `python3 box/main.py run`
 
-## Step-by-step
-1) Box starts and creates `box/data/box.json` if missing.
-2) WiFi state is derived from stored profiles:
-   - none -> `WIFI_UNCONFIGURED`
-3) Setup UI available at `http://127.0.0.1:9000/setup`.
-4) After profile submission, box becomes `WIFI_ONLINE`.
-5) API available at `http://127.0.0.1:8000`.
+## Schritt-fuer-Schritt
+1) Box erzeugt `box_id` in `box/data/box.json`.
+2) WLAN-Status wird aus Profilen abgeleitet:
+   - keine Profile -> `WIFI_UNCONFIGURED`
+3) Setup UI unter `http://127.0.0.1:9000/setup`.
+4) Nach Submit wird `WIFI_ONLINE`.
+5) API unter `http://127.0.0.1:8000`.
 
 ## Troubleshooting
-- Setup UI not reachable:
-  - Ensure port 9000 is free and Box is running.
-- API not reachable:
-  - Ensure port 8000 is free and Box is running.
+- Setup UI nicht erreichbar:
+  - Port 9000 frei? Box laeuft?
+- API nicht erreichbar:
+  - Port 8000 frei? Box laeuft?

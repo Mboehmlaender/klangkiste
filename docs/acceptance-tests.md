@@ -1,560 +1,572 @@
-# Acceptance Tests
+# Acceptance-Tests
 
-## Purpose
-Comprehensive test catalog derived from the current codebase. Each test is runnable in Simulation and described for Real Box hardware. Behaviors not implemented are explicitly marked.
+## Zweck
+Konsistenter Testkatalog basierend auf dem aktuellen Code. Alle Tests trennen Simulation und Hardware. Nicht implementierte Punkte sind explizit markiert.
 
-## Prerequisites
-- Repo root
+## Voraussetzungen
+- Repo-Root
 - Python 3
-- Box API running for Simulation: `python3 box/main.py run`
+- Box API fuer Simulation: `python3 box/main.py run`
 - GUI optional: `cd gui && npm run dev`
 
-## Step-by-step
-Use the tests below in order or individually.
+## Schritt-fuer-Schritt
+Die Tests koennen einzeln oder der Reihe nach ausgefuehrt werden.
 
 ---
 
-## Test A: Box-Start & Identitaet (box_id)
+# Lokale Box-Tests (L1-L10)
 
-1) Goal
-- Verify box_id is created once and persists.
+## Test L1: Box-Start & box_id
 
-2) Preconditions
-- Simulation: `box/data/box.json` may be missing.
-- Real Box: storage is empty or fresh install.
+1) Ziel
+- box_id wird einmalig erzeugt und bleibt stabil.
 
-3) Procedure – Simulation / Emulation
-- Start Box:
+2) Voraussetzungen
+- Simulation: `box/data/box.json` kann fehlen.
+- Hardware: frischer Start.
+
+3) Durchfuehrung – Simulation / Emulation
+- Box starten:
 ```
 python3 box/main.py run
 ```
-- Check box_id in API:
+- Status lesen:
 ```
 curl http://127.0.0.1:8000/status
 ```
-- Inspect file:
+- Datei pruefen:
 ```
 cat box/data/box.json
 ```
 
-4) Procedure – Real Box (Hardware)
-- Power on device.
-- Open status UI (if available) or API endpoint.
+4) Durchfuehrung – Reale Box (Hardware)
+- Box einschalten.
+- Statusseite/API pruefen (sofern erreichbar).
 
-5) Expected Result
-- `/status` contains `box_id` with format `klangkiste-<10 chars a-z0-9>`.
-- `box/data/box.json` contains `box_id` and is stable across restarts.
+5) Erwartetes Ergebnis
+- `box_id` im Format `klangkiste-<10 chars a-z0-9>`.
+- `box/data/box.json` bleibt stabil ueber Neustarts.
 
-6) Deviations / Troubleshooting
-- `box_id` missing: check write permissions for `box/data/`.
-- `box_id` changes: indicates manual deletion of `box/data/box.json`.
+6) Abweichungen / Fehlersuche
+- `box_id` fehlt: Schreibrechte in `box/data/` pruefen.
 
 ---
 
-## Test B: WLAN-Ersteinrichtung (Setup WebGUI)
+## Test L2: WLAN-Ersteinrichtung (Setup WebGUI)
 
-1) Goal
-- Configure WiFi profile via setup UI and reach WIFI_ONLINE.
+1) Ziel
+- WLAN-Profil per Setup UI anlegen.
 
-2) Preconditions
-- No WiFi profiles stored.
+2) Voraussetzungen
+- Keine WLAN-Profile gespeichert.
 
-3) Procedure – Simulation / Emulation
-- Reset WiFi profiles:
+3) Durchfuehrung – Simulation / Emulation
+- WLAN reset:
 ```
 curl -X POST http://127.0.0.1:8000/command \
   -H "Content-Type: application/json" \
   -d '{"command":"wifi_reset"}'
 ```
-- Open Setup UI:
+- Setup UI oeffnen:
 ```
 http://127.0.0.1:9000/setup
 ```
-- Choose SSID and enter password, click "Verbinden".
-- Check status:
+- SSID waehlen, Passwort eingeben, speichern.
+- Status pruefen:
 ```
 curl http://127.0.0.1:8000/status
 ```
 
-4) Procedure – Real Box (Hardware)
-- Power on device.
-- Connect to device AP SSID (not implemented in code).
-- Open setup page and submit WiFi credentials.
+4) Durchfuehrung – Reale Box (Hardware)
+- Nicht testbar mit aktuellem Code: kein echter AP/WLAN-Stack.
 
-5) Expected Result
+5) Erwartetes Ergebnis
 - `wifi_state = WIFI_ONLINE`
-- `connected_ssid` matches selected SSID
-- `wifi_profiles_count` increments
+- `connected_ssid` gesetzt
 
-6) Deviations / Troubleshooting
-- Setup UI unreachable: port 9000 occupied or Box not running.
-- Not testable with current code: AP SSID and real WiFi connect.
+6) Abweichungen / Fehlersuche
+- Setup UI nicht erreichbar: Port 9000 frei, Box laeuft.
 
 ---
 
-## Test C: Persistenz & Neustart
+## Test L3: Persistenz & Neustart
 
-1) Goal
-- Ensure resume state and WiFi profiles persist across restarts.
+1) Ziel
+- Resume und WLAN-Profile bleiben ueber Neustart erhalten.
 
-2) Preconditions
-- At least one WiFi profile stored.
-- Playback started once.
+2) Voraussetzungen
+- WLAN-Profil vorhanden.
+- Playback einmal gestartet.
 
-3) Procedure – Simulation / Emulation
-- Add WiFi profile (if needed):
+3) Durchfuehrung – Simulation / Emulation
+- WLAN-Profil setzen:
 ```
 curl -X POST http://127.0.0.1:8000/command \
   -H "Content-Type: application/json" \
   -d '{"command":"wifi_add_profile","payload":{"ssid":"HomeWiFi","password":"secret","priority":10}}'
 ```
-- Start playback:
+- Playback starten:
 ```
 curl -X POST http://127.0.0.1:8000/command \
   -H "Content-Type: application/json" \
   -d '{"command":"nfc_on","payload":{"uid":"UID_1"}}'
 ```
-- Stop playback:
+- Playback stoppen:
 ```
 curl -X POST http://127.0.0.1:8000/command \
   -H "Content-Type: application/json" \
   -d '{"command":"nfc_off","payload":{"uid":"UID_1"}}'
 ```
-- Restart Box process.
-- Check status:
+- Box-Prozess neu starten.
+- Status pruefen:
 ```
 curl http://127.0.0.1:8000/status
 ```
 
-4) Procedure – Real Box (Hardware)
-- Start playback via NFC.
-- Power cycle device.
-- Verify WiFi profile and resume state persist.
+4) Durchfuehrung – Reale Box (Hardware)
+- Nicht testbar mit aktuellem Code: kein echter WLAN-Stack.
 
-5) Expected Result
-- `box/data/state.json` contains `resume`.
-- `box/data/secrets.enc` exists and contains profiles (encrypted).
-- After restart, `wifi_state` is not UNCONFIGURED.
+5) Erwartetes Ergebnis
+- `box/data/state.json` enthaelt Resume.
+- `box/data/secrets.enc` existiert.
 
-6) Deviations / Troubleshooting
-- Resume missing: check `box/data/state.json`.
-- WiFi profiles missing: check `box/data/secrets.enc` creation.
+6) Abweichungen / Fehlersuche
+- Resume fehlt: `box/data/state.json` pruefen.
 
 ---
 
-## Test D: HTTP API Status & Commands
+## Test L4: HTTP API Status & Commands
 
-1) Goal
-- Verify /status and /command are functional.
+1) Ziel
+- /status und /command liefern Antworten und aendern Status.
 
-2) Preconditions
-- Box running.
+2) Voraussetzungen
+- Box laeuft.
 
-3) Procedure – Simulation / Emulation
+3) Durchfuehrung – Simulation / Emulation
 - Status:
 ```
 curl http://127.0.0.1:8000/status
 ```
-- Command:
+- Command (vor Pairing -> 403 erwartet):
 ```
 curl -X POST http://127.0.0.1:8000/command \
   -H "Content-Type: application/json" \
   -d '{"command":"play_pause"}'
 ```
 
-4) Procedure – Real Box (Hardware)
-- Same as above once API is reachable in real network.
+4) Durchfuehrung – Reale Box (Hardware)
+- Gleich wie Simulation, sofern API erreichbar.
 
-5) Expected Result
-- HTTP 200 responses.
-- `/status` fields updated after commands.
+5) Erwartetes Ergebnis
+- Vor Pairing: HTTP 403 fuer gesperrte Commands.
+- Nach Pairing (mit Token): HTTP 200 und Status aktualisiert.
 
-6) Deviations / Troubleshooting
-- CORS errors: ensure API is running.
-- 400 errors: check payload requirements.
-
----
-
-## Test E: GUI-Steuerung
-
-1) Goal
-- Verify GUI can control playback and display status.
-
-2) Preconditions
-- Box running on 127.0.0.1:8000.
-- GUI running on 127.0.0.1:5174.
-
-3) Procedure – Simulation / Emulation
-- Open GUI:
-```
-http://127.0.0.1:5174
-```
-- Click Play / Pause, Next, Prev, Vol +, Vol -.
-- Click NFC UID_1 ON/OFF.
-- Watch status refresh (polling every 1s).
-
-4) Procedure – Real Box (Hardware)
-- Use GUI from another device pointing to Box IP.
-
-5) Expected Result
-- `/status` changes after each button.
-- GUI shows updated status and last_error if present.
-
-6) Deviations / Troubleshooting
-- GUI shows "Failed to fetch": verify VITE_BOX_API_URL.
+6) Abweichungen / Fehlersuche
+- 400: Payload pruefen.
 
 ---
 
-## Test F: Playback & NFC
+## Test L5: GUI-Steuerung
 
-1) Goal
-- Verify NFC starts playback from tags.
+1) Ziel
+- GUI steuert Box und zeigt Live-Status.
 
-2) Preconditions
-- Tags exist in `box/data/box.json`.
-- Media exists under `box/data/media`.
+2) Voraussetzungen
+- GUI laeuft auf 127.0.0.1:5174.
 
-3) Procedure – Simulation / Emulation
-- Start playback:
+3) Durchfuehrung – Simulation / Emulation
+- GUI oeffnen, Buttons klicken.
+- Status aendert sich innerhalb von 1s.
+
+4) Durchfuehrung – Reale Box (Hardware)
+- GUI auf Box-IP ausrichten (spaeter).
+
+5) Erwartetes Ergebnis
+- `/status` aendert sich nach Commands.
+
+6) Abweichungen / Fehlersuche
+- GUI "Failed to fetch": `VITE_BOX_API_URL` pruefen.
+
+---
+
+## Test L6: Playback & NFC
+
+1) Ziel
+- NFC startet Playback.
+
+2) Voraussetzungen
+- Tags in `box/data/box.json`.
+- Medien in `box/data/media`.
+
+3) Durchfuehrung – Simulation / Emulation
 ```
 curl -X POST http://127.0.0.1:8000/command \
   -H "Content-Type: application/json" \
   -d '{"command":"nfc_on","payload":{"uid":"UID_1"}}'
 ```
-- Observe `/status`:
-```
-curl http://127.0.0.1:8000/status
-```
 
-4) Procedure – Real Box (Hardware)
-- Place NFC tag mapped to UID_1.
+4) Durchfuehrung – Reale Box (Hardware)
+- NFC-Tag auflegen (spaeter).
 
-5) Expected Result
+5) Erwartetes Ergebnis
 - `playback_state.state = PLAYING`
-- `active_uid = UID_1`
 
-6) Deviations / Troubleshooting
-- No playback: check tags in `box/data/box.json` and files in `box/data/media`.
-
----
-
-## Test G: Resume-Logik
-
-1) Goal
-- Resume picks up last file index and position per UID.
-
-2) Preconditions
-- Playback started at least once for UID_1.
-
-3) Procedure – Simulation / Emulation
-- Start playback, wait ~5s.
-- Stop with `nfc_off`.
-- Start again with `nfc_on`.
-
-4) Procedure – Real Box (Hardware)
-- Place NFC tag, remove, place again.
-
-5) Expected Result
-- Resume uses stored `file_index` and `position`.
-- `box/data/state.json` contains resume for UID_1.
-
-6) Deviations / Troubleshooting
-- Resume resets to 0: check `state.json` and path changes.
+6) Abweichungen / Fehlersuche
+- Tag fehlt: `box/data/box.json` pruefen.
 
 ---
 
-## Test H: Ordner- & Rekursionslogik
+## Test L7: Resume-Logik
 
-1) Goal
-- Verify recursive ordering (DFS, folders first, lexicographic).
+1) Ziel
+- Resume pro UID funktioniert.
 
-2) Preconditions
-- Nested media structure in `box/data/media`.
+2) Voraussetzungen
+- Playback einmal gestartet.
 
-3) Procedure – Simulation / Emulation
-- Create nested structure in `box/data/media/book_6/CD1/...`.
-- Point a tag to `media/book_6` in `box/data/box.json`.
-- Start playback with `nfc_on`.
+3) Durchfuehrung – Simulation / Emulation
+- `nfc_on UID_1`, warten, `nfc_off UID_1`, dann `nfc_on UID_1`.
 
-4) Procedure – Real Box (Hardware)
-- Copy nested folders to the device media path.
-- Start playback via NFC.
+4) Durchfuehrung – Reale Box (Hardware)
+- NFC auflegen/abnehmen (spaeter).
 
-5) Expected Result
-- Files play in DFS order: subfolders sorted, then files.
+5) Erwartetes Ergebnis
+- Resume nutzt gespeicherte Position.
 
-6) Deviations / Troubleshooting
-- Ordering unexpected: check folder names and lexicographic sort.
+6) Abweichungen / Fehlersuche
+- Resume = 0: `box/data/state.json` pruefen.
 
 ---
 
-## Test I: Offline-Szenarien (Box intern)
+## Test L8: Rekursion & Ordnerstruktur
 
-1) Goal
-- Verify WiFi and Spotify states in offline/online flows.
+1) Ziel
+- Rekursive Reihenfolge (DFS) ist korrekt.
 
-2) Preconditions
-- Box running.
+2) Voraussetzungen
+- Verschachtelte Ordner in `box/data/media`.
 
-3) Procedure – Simulation / Emulation
-- WiFi reset:
-```
-curl -X POST http://127.0.0.1:8000/command \
-  -H "Content-Type: application/json" \
-  -d '{"command":"wifi_reset"}'
-```
-- Spotify clear:
-```
-curl -X POST http://127.0.0.1:8000/command \
-  -H "Content-Type: application/json" \
-  -d '{"command":"spotify_clear"}'
-```
+3) Durchfuehrung – Simulation / Emulation
+- Tag auf `media/book_6` setzen, `nfc_on`.
 
-4) Procedure – Real Box (Hardware)
-- Not testable with current code: real network loss and Spotify connectivity.
+4) Durchfuehrung – Reale Box (Hardware)
+- Medienstruktur auf Box kopieren (spaeter).
 
-5) Expected Result
+5) Erwartetes Ergebnis
+- DFS-Reihenfolge, lexikografisch.
+
+6) Abweichungen / Fehlersuche
+- Reihenfolge falsch: Ordnernamen pruefen.
+
+---
+
+## Test L9: Offline-Szenarien (Box intern)
+
+1) Ziel
+- WiFi/Spotify-Status reagieren auf Commands.
+
+2) Voraussetzungen
+- Box laeuft.
+
+3) Durchfuehrung – Simulation / Emulation
+- `wifi_reset` und `spotify_clear` ausfuehren.
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Nicht testbar mit aktuellem Code.
+
+5) Erwartetes Ergebnis
 - `wifi_state = WIFI_UNCONFIGURED`
 - `spotify_status = NOT_CONFIGURED`
 
-6) Deviations / Troubleshooting
-- Status unchanged: ensure you read `/status` after command.
+6) Abweichungen / Fehlersuche
+- Status aendert sich nicht: `/status` pruefen.
 
 ---
 
-## Test J: Fehlerfaelle (Box intern)
+## Test L10: Fehlerfaelle (Box intern)
 
-1) Goal
-- Verify error sound and error reporting.
+1) Ziel
+- Fehler setzen `last_error`.
 
-2) Preconditions
-- Box running.
+2) Voraussetzungen
+- Box laeuft.
 
-3) Procedure – Simulation / Emulation
-- Trigger error:
+3) Durchfuehrung – Simulation / Emulation
 ```
 curl -X POST http://127.0.0.1:8000/command \
   -H "Content-Type: application/json" \
   -d '{"command":"trigger_error","payload":{"type":"uid_unmapped"}}'
 ```
-- Check `/status` for `last_error`.
-
-4) Procedure – Real Box (Hardware)
-- Not testable with current code: actual error sound output.
-
-5) Expected Result
-- `playback_state.last_error` equals error type.
-- Box returns to `IDLE` after error.
-
-6) Deviations / Troubleshooting
-- No error shown: verify `/status` and that errors are not cleared automatically.
-
----
-
-## Test K: Announce -> neue Box erscheint im Server
-
-1) Ziel
-- Box meldet sich beim Server und erscheint als UNPAIRED / neue Box.
-
-2) Voraussetzungen
-- Simulation: Server-Komponente vorhanden und laeuft.
-- Real Box: Server erreichbar im Netzwerk.
-
-3) Durchfuehrung – Simulation / Emulation
-- Nicht testbar mit aktuellem Code: Box sendet keine Announce-Requests.
-
-4) Durchfuehrung – Reale Box (Hardware)
-- Nicht testbar mit aktuellem Code: Announce-Logik ist nicht implementiert.
-
-5) Erwartetes Ergebnis
-- Nicht testbar mit aktuellem Code.
-
-6) Abweichungen / Fehlersuche
-- Wenn implementiert: Pruefe Server-Logs, API-Endpunkte und Box-Statusfelder.
-
----
-
-## Test L: Mehrere Boxen gleichzeitig
-
-1) Ziel
-- Mehrere Boxen werden als separate, unbekannte Boxen erkannt.
-
-2) Voraussetzungen
-- Simulation: Mehrere Box-Prozesse mit unterschiedlichen `box_id`.
-
-3) Durchfuehrung – Simulation / Emulation
-- Nicht testbar mit aktuellem Code: Announce/Server-Erkennung fehlt.
 
 4) Durchfuehrung – Reale Box (Hardware)
 - Nicht testbar mit aktuellem Code.
 
 5) Erwartetes Ergebnis
-- Nicht testbar mit aktuellem Code.
+- `playback_state.last_error` gesetzt.
 
 6) Abweichungen / Fehlersuche
-- Wenn implementiert: Pruefe Duplikate anhand `box_id` und `fingerprint`.
+- Kein Fehler sichtbar: `/status` pruefen.
 
 ---
 
-## Test M: Pairing-Freigabe ueber Server-GUI
+# Server/Pairing-Tests (A-J)
+
+## Test A: Box-Erststart & Identitaet
 
 1) Ziel
-- Box wird nach Freigabe gepairt und erhaelt API-Token.
+- box_id wird einmalig erzeugt.
 
 2) Voraussetzungen
-- Simulation: Server-GUI und Pairing-Endpunkte implementiert.
+- Box gestartet.
 
 3) Durchfuehrung – Simulation / Emulation
-- Nicht testbar mit aktuellem Code: Pairing-Flow fehlt.
+- Siehe Test L1.
 
 4) Durchfuehrung – Reale Box (Hardware)
-- Nicht testbar mit aktuellem Code.
+- Siehe Test L1.
 
 5) Erwartetes Ergebnis
-- Nicht testbar mit aktuellem Code.
+- box_id stabil.
 
 6) Abweichungen / Fehlersuche
-- Wenn implementiert: Pruefe Token-Speicherung in `box/data/secrets.enc`.
+- Siehe Test L1.
 
 ---
 
-## Test N: Verhalten vor Pairing (keine Steuerung erlaubt)
+## Test B: Announce -> neue Box erscheint im Server
 
 1) Ziel
-- Vor Pairing sind Steuerbefehle blockiert.
+- Box meldet sich beim Server und erscheint als UNPAIRED.
 
 2) Voraussetzungen
-- Server-Integration und Auth-Checks vorhanden.
-
-3) Durchfuehrung – Simulation / Emulation
-- Nicht testbar mit aktuellem Code: kein Auth/Pairing implementiert.
-
-4) Durchfuehrung – Reale Box (Hardware)
-- Nicht testbar mit aktuellem Code.
-
-5) Erwartetes Ergebnis
-- Nicht testbar mit aktuellem Code.
-
-6) Abweichungen / Fehlersuche
-- Wenn implementiert: Pruefe API-Responses (401/403) und Server-Logs.
-
----
-
-## Test O: Verhalten nach Pairing
-
-1) Ziel
-- Nach Pairing sind Steuerbefehle erlaubt und Box reagiert.
-
-2) Voraussetzungen
-- Pairing-Flow implementiert.
-
-3) Durchfuehrung – Simulation / Emulation
-- Nicht testbar mit aktuellem Code.
-
-4) Durchfuehrung – Reale Box (Hardware)
-- Nicht testbar mit aktuellem Code.
-
-5) Erwartetes Ergebnis
-- Nicht testbar mit aktuellem Code.
-
-6) Abweichungen / Fehlersuche
-- Wenn implementiert: Pruefe Token in `secrets.enc` und Server-GUI Status.
-
----
-
-## Test P: Neustart vor/nach Pairing
-
-1) Ziel
-- Box behaelt Pairing-Status und Token ueber Neustarts.
-
-2) Voraussetzungen
-- Pairing implementiert.
-
-3) Durchfuehrung – Simulation / Emulation
-- Nicht testbar mit aktuellem Code.
-
-4) Durchfuehrung – Reale Box (Hardware)
-- Nicht testbar mit aktuellem Code.
-
-5) Erwartetes Ergebnis
-- Nicht testbar mit aktuellem Code.
-
-6) Abweichungen / Fehlersuche
-- Wenn implementiert: Pruefe `secrets.enc` vor/nach Neustart.
-
----
-
-## Test Q: Factory Reset -> neue Identitaet
-
-1) Ziel
-- Factory Reset loescht box_id und erzeugt neue Identitaet beim naechsten Start.
-
-2) Voraussetzungen
-- Box laeuft einmalig und `box/data/` existiert.
-
-3) Durchfuehrung – Simulation / Emulation
-- Stoppe Box.
-- Loesche folgende Dateien:
+- Server laeuft:
 ```
-rm -f box/data/box.json box/data/state.json box/data/secrets.enc
+python3 server/main.py
 ```
-- Starte Box neu:
+
+3) Durchfuehrung – Simulation / Emulation
+- Box starten:
 ```
 python3 box/main.py run
 ```
-- Pruefe `/status`.
+- 30-60s warten (Announce-Intervall).
+- Server-GUI oeffnen:
+```
+http://127.0.0.1:7000/ui
+```
+- Optional: Server-Storage pruefen:
+```
+cat server/data/boxes.json
+```
 
 4) Durchfuehrung – Reale Box (Hardware)
-- Nicht testbar mit aktuellem Code: kein Factory-Reset-Mechanismus implementiert.
+- Box einschalten.
+- Server-GUI oeffnen, Box sollte erscheinen.
 
 5) Erwartetes Ergebnis
-- Neue `box_id` erscheint in `/status`.
+- Box erscheint als UNPAIRED in der Server-GUI.
+- `server/data/boxes.json` enthaelt `box_id` und `fingerprint`.
 
 6) Abweichungen / Fehlersuche
-- `box_id` bleibt gleich: Dateien wurden nicht geloescht.
+- Keine Box sichtbar: Server-URL in `box/data/box.json` pruefen.
+- Server nicht erreichbar: Server-Prozess/Port 7000 pruefen.
 
 ---
 
-## Test R: Offline / Server nicht erreichbar
+## Test C: Mehrere Boxen gleichzeitig
 
 1) Ziel
-- Box laeuft weiter, wenn Server nicht erreichbar ist.
+- Mehrere Boxen werden separat erkannt.
 
 2) Voraussetzungen
-- Server-Integration implementiert.
+- Mehrere Boxen mit unterschiedlichen `box_id`.
 
 3) Durchfuehrung – Simulation / Emulation
-- Nicht testbar mit aktuellem Code: keine Server-Kommunikation.
+- Nicht testbar mit aktuellem Code: Box nutzt festen `box/data/`-Pfad und kann nicht mehrfach parallel laufen.
 
 4) Durchfuehrung – Reale Box (Hardware)
-- Nicht testbar mit aktuellem Code.
+- Zwei physische Boxen einschalten.
+- Server-GUI zeigt beide UNPAIRED an.
 
 5) Erwartetes Ergebnis
-- Nicht testbar mit aktuellem Code.
+- Zwei Eintraege mit unterschiedlichen `box_id`.
 
 6) Abweichungen / Fehlersuche
-- Wenn implementiert: pruefe lokale Funktionen (Playback, NFC) laufen weiter.
+- Duplikate: `box_id` doppelt? Factory-Reset pruefen.
 
 ---
 
-## Test S: Simulation vs. Hardware – Unterschiede
+## Test D: Pairing-Freigabe ueber Server-GUI
 
 1) Ziel
-- Dokumentiere, was real vs. mock ist.
+- Pairing liefert API-Token und Box wird PAIRED.
+
+2) Voraussetzungen
+- Box erscheint als UNPAIRED in `/ui`.
+
+3) Durchfuehrung – Simulation / Emulation
+- Server-GUI oeffnen:
+```
+http://127.0.0.1:7000/ui
+```
+- Button "Box hinzufuegen" klicken.
+- API-Token via Server-API abrufen:
+```
+curl -X POST http://127.0.0.1:7000/api/boxes/pair   -H "Content-Type: application/json"   -d '{"box_id":"<box_id>"}'
+```
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Gleiches Vorgehen ueber Server-GUI.
+
+5) Erwartetes Ergebnis
+- Box erscheint in der gepaarten Liste.
+- `api_token` wird an die Box ausgeliefert.
+
+6) Abweichungen / Fehlersuche
+- Pairing bleibt aus: `server/data/boxes.json` pruefen.
+
+---
+
+## Test E: Verhalten vor Pairing (keine Steuerung erlaubt)
+
+1) Ziel
+- Vor Pairing werden Steuerbefehle blockiert.
+
+2) Voraussetzungen
+- Box UNPAIRED.
+
+3) Durchfuehrung – Simulation / Emulation
+```
+curl -i -X POST http://127.0.0.1:8000/command   -H "Content-Type: application/json"   -d '{"command":"play_pause"}'
+```
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Gleicher Request gegen Box-IP.
+
+5) Erwartetes Ergebnis
+- HTTP 403 "pairing required".
+
+6) Abweichungen / Fehlersuche
+- Wenn 200: Pairing-Status und API-Token pruefen.
+
+---
+
+## Test F: Verhalten nach Pairing
+
+1) Ziel
+- Nach Pairing sind Commands erlaubt (mit Token).
+
+2) Voraussetzungen
+- Box PAIRED und api_token vorhanden.
+
+3) Durchfuehrung – Simulation / Emulation
+```
+curl -i -X POST http://127.0.0.1:8000/command   -H "Content-Type: application/json"   -H "X-API-Token: <api_token>"   -d '{"command":"play_pause"}'
+```
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Gleiches Vorgehen gegen Box-IP.
+
+5) Erwartetes Ergebnis
+- HTTP 200, Status aktualisiert.
+
+6) Abweichungen / Fehlersuche
+- 403: Token pruefen, Pairing-Status pruefen.
+
+---
+
+## Test G: Neustart vor/nach Pairing
+
+1) Ziel
+- Pairing-Status und Token bleiben ueber Neustart erhalten.
+
+2) Voraussetzungen
+- Box PAIRED.
+
+3) Durchfuehrung – Simulation / Emulation
+- Box-Prozess stoppen, neu starten.
+- Mit Token Command senden.
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Power cycle.
+
+5) Erwartetes Ergebnis
+- Box bleibt PAIRED, Token weiterhin gueltig.
+
+6) Abweichungen / Fehlersuche
+- Token fehlt: `box/data/secrets.enc` pruefen.
+
+---
+
+## Test H: Factory Reset -> neue Identitaet
+
+1) Ziel
+- Factory Reset erzeugt neue Identitaet.
+
+2) Voraussetzungen
+- Box einmal gestartet.
+
+3) Durchfuehrung – Simulation / Emulation
+- Box stoppen.
+- Dateien loeschen:
+```
+rm -f box/data/box.json box/data/state.json box/data/secrets.enc
+```
+- Box neu starten.
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Nicht testbar mit aktuellem Code: kein Reset-Mechanismus.
+
+5) Erwartetes Ergebnis
+- Neue `box_id`.
+
+6) Abweichungen / Fehlersuche
+- `box_id` bleibt gleich: Dateien nicht geloescht.
+
+---
+
+## Test I: Offline / Server nicht erreichbar
+
+1) Ziel
+- Box laeuft weiter ohne Server.
+
+2) Voraussetzungen
+- Box laeuft, Server gestoppt.
+
+3) Durchfuehrung – Simulation / Emulation
+- Server stoppen.
+- Playback starten (mit Token falls gepairt).
+
+4) Durchfuehrung – Reale Box (Hardware)
+- Server vom Netz trennen.
+
+5) Erwartetes Ergebnis
+- Lokale Playback-Logik laeuft weiter.
+- Server-GUI zeigt Box ggf. als OFFLINE nach Timeout.
+
+6) Abweichungen / Fehlersuche
+- Box stoppt: lokale Logs pruefen.
+
+---
+
+## Test J: Simulation vs. Hardware – Unterschiede
+
+1) Ziel
+- Unterschiede klar dokumentieren.
 
 2) Voraussetzungen
 - Box laeuft in Simulation.
 
 3) Durchfuehrung – Simulation / Emulation
-- Beachte: WiFi/IP/Spotify/Audio sind Mock.
+- WiFi/IP/Spotify/Audio sind Mock.
 - Setup UI und API funktionieren lokal.
 
 4) Durchfuehrung – Reale Box (Hardware)
-- Nicht testbar mit aktuellem Code: Hardware-Backends fehlen.
+- Echte Backends notwendig (nicht implementiert).
 
 5) Erwartetes Ergebnis
 - Simulation laeuft ohne Hardware.
-- Hardware-Backends koennen spaeter ersetzt werden.
 
 6) Abweichungen / Fehlersuche
-- Wenn Hardware genutzt wird, fehlen Implementierungen.
+- Hardware-Backends fehlen.
