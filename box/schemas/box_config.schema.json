@@ -41,6 +41,9 @@
         },
         "additionalProperties": false
       }
+    },
+    "server_reachable": {
+      "type": "boolean"
     }
   },
   "additionalProperties": false

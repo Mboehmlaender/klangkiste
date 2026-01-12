@@ -7,6 +7,7 @@ from typing import Any
 
 from core.state import BoxState, RuntimeState
 from player.base_player import BasePlayer
+import hashlib
 
 
 class BoxController:
@@ -31,10 +32,20 @@ class BoxController:
         return None
 
     def handle_nfc_on(self, uid: str) -> None:
+        if self._state.state == BoxState.ERROR:
+            return None
+        if self._state.active_uid == uid and self._state.state != BoxState.IDLE:
+            return None
+        if self._config.get("server_reachable") is False:
+            print("error: server not reachable")
+            self._trigger_error("server_unreachable")
+            return None
         tag = self._resolve_tag(uid)
         if tag is None:
             print(f"error: uid '{uid}' not found in config tags")
+            self._trigger_error("uid_unmapped")
             return None
+        self._state.last_error = None
 
         playlist = self._build_playlist(tag)
         if not playlist:
@@ -43,15 +54,24 @@ class BoxController:
             print(
                 f"error: no playable files found for uid '{uid}' at path '{resolved}'"
             )
+            self._trigger_error("no_playable_files")
             return None
 
-        if self._state.active_uid == uid and uid in self._state._resume:
+        if uid in self._state._resume:
             file_index, position = self._state._resume[uid]
         else:
             file_index, position = 0, 0
 
         if file_index < 0 or file_index >= len(playlist):
-            file_index, position = 0, 0
+            print(
+                f"error: stored progress points outside playlist for uid '{uid}'"
+            )
+            self._trigger_error("invalid_resume")
+            return None
+
+        if self._state.active_uid and self._state.active_uid != uid:
+            self._store_progress(self._state.active_uid)
+            self.stop()
 
         media_ref = playlist[file_index]
         duration = self._duration_for(media_ref)
@@ -75,10 +95,11 @@ class BoxController:
 
     def stop(self) -> None:
         self._player.stop()
-        self._state.current_media = None
-        self._state.state = BoxState.IDLE
+        self._clear_playback_state()
 
     def handle_nfc_off(self, uid: str) -> None:
+        if self._state.state == BoxState.ERROR:
+            return None
         if self._state.active_uid != uid:
             return None
         self._store_progress(uid)
@@ -96,6 +117,8 @@ class BoxController:
         return tag
 
     def tick(self, seconds: int) -> None:
+        if self._state.state == BoxState.ERROR:
+            return None
         if self._state.state != BoxState.PLAYING:
             return None
         if self._state.position is None or self._state.file_index is None:
@@ -124,12 +147,14 @@ class BoxController:
                 position = 0
 
             if file_index >= len(self._state._playlist):
-                self._state.file_index = len(self._state._playlist) - 1
-                self._state.position = duration
-                self._state.current_media = None
-                self._state.current_file = None
-                self._state.current_duration = None
-                self._state.state = BoxState.IDLE
+                last_index = len(self._state._playlist) - 1
+                last_media = self._state._playlist[last_index]
+                last_duration = self._duration_for(last_media)
+                self._state.file_index = last_index
+                self._state.position = last_duration
+                if self._state.active_uid:
+                    self._store_progress(self._state.active_uid)
+                self.stop()
                 return None
 
         self._state.file_index = file_index
@@ -146,9 +171,17 @@ class BoxController:
         path = self._resolve_path(path_value)
         if not path.exists() or not path.is_dir():
             return []
-        files = [p for p in path.iterdir() if p.is_file()]
-        files_sorted = sorted(files, key=lambda p: p.name)
-        return [str(p) for p in files_sorted]
+        return [str(p) for p in self._collect_files(path)]
+
+    def _collect_files(self, root: Path) -> list[Path]:
+        entries = list(root.iterdir())
+        dirs = sorted([p for p in entries if p.is_dir()], key=lambda p: p.name)
+        files = sorted([p for p in entries if p.is_file()], key=lambda p: p.name)
+        result: list[Path] = []
+        for directory in dirs:
+            result.extend(self._collect_files(directory))
+        result.extend(files)
+        return result
 
     def _resolve_path(self, path_value: str) -> Path:
         path = Path(path_value)
@@ -164,4 +197,94 @@ class BoxController:
     def _duration_for(self, media_ref: str) -> int:
         name = Path(media_ref).name
         durations = {"01.mp3": 180, "02.mp3": 200, "03.mp3": 220}
-        return durations.get(name, 0)
+        if name in durations:
+            return durations[name]
+        if not name.lower().endswith(".mp3"):
+            return 0
+        digest = hashlib.md5(name.encode("utf-8")).hexdigest()
+        seed = int(digest[:8], 16)
+        return 120 + (seed % 241)
+
+    def play_pause(self) -> None:
+        if self._state.state in {BoxState.IDLE, BoxState.ERROR}:
+            return None
+        if self._state.state == BoxState.PLAYING:
+            self._state.state = BoxState.PAUSED
+            return None
+        if self._state.state == BoxState.PAUSED:
+            self._state.state = BoxState.PLAYING
+            return None
+
+    def next_track(self) -> None:
+        if self._state.state in {BoxState.IDLE, BoxState.ERROR}:
+            return None
+        if not self._state._playlist:
+            return None
+        if self._state.file_index is None:
+            return None
+        next_index = self._state.file_index + 1
+        if next_index >= len(self._state._playlist):
+            if self._state.active_uid:
+                self._store_progress(self._state.active_uid)
+            self.stop()
+            return None
+        self._jump_to_index(next_index, 0)
+        self._state.state = BoxState.PLAYING
+
+    def prev_track(self, threshold_seconds: int = 3) -> None:
+        if self._state.state in {BoxState.IDLE, BoxState.ERROR}:
+            return None
+        if self._state.file_index is None or self._state.position is None:
+            return None
+        if self._state.position > threshold_seconds:
+            self._state.position = 0
+            return None
+        prev_index = max(self._state.file_index - 1, 0)
+        self._jump_to_index(prev_index, 0)
+        self._state.state = BoxState.PLAYING
+
+    def volume_up(self, step: int = 5) -> None:
+        if self._state.state == BoxState.ERROR:
+            return None
+        self._state.volume = min(self._state.volume + step, self._state.max_volume)
+
+    def volume_down(self, step: int = 5) -> None:
+        if self._state.state == BoxState.ERROR:
+            return None
+        self._state.volume = max(self._state.volume - step, 0)
+
+    def _jump_to_index(self, file_index: int, position: int) -> None:
+        if not self._state._playlist:
+            return None
+        if file_index < 0 or file_index >= len(self._state._playlist):
+            return None
+        media_ref = self._state._playlist[file_index]
+        self._state.file_index = file_index
+        self._state.position = position
+        self._state.current_media = media_ref
+        self._state.current_file = Path(media_ref).name
+        self._state.current_duration = self._duration_for(media_ref)
+        self._player.play(media_ref)
+
+    def _trigger_error(self, code: str) -> None:
+        if self._state.state in {BoxState.PLAYING, BoxState.PAUSED}:
+            self._player.pause()
+        self._state.state = BoxState.ERROR
+        self._state.last_error = code
+        self._player.play(f"system:error:{code}")
+        self._clear_playback_state()
+
+    def _clear_playback_state(self) -> None:
+        self._state.state = BoxState.IDLE
+        self._state.active_uid = None
+        self._state.playback_type = None
+        self._state.playback_path = None
+        self._state.current_media = None
+        self._state.current_file = None
+        self._state.current_duration = None
+        self._state.file_index = None
+        self._state.position = None
+        self._state._playlist = []
+
+    def trigger_error(self, code: str) -> None:
+        self._trigger_error(code)

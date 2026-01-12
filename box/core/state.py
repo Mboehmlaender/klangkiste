@@ -11,6 +11,7 @@ class BoxState(str, Enum):
     IDLE = "IDLE"
     PLAYING = "PLAYING"
     PAUSED = "PAUSED"
+    ERROR = "ERROR"
 
 
 @dataclass
@@ -26,5 +27,7 @@ class RuntimeState:
     current_duration: Optional[int] = None
     file_index: Optional[int] = None
     position: Optional[int] = None
+    last_error: Optional[str] = None
     _resume: dict[str, tuple[int, int]] = field(default_factory=dict)
     _playlist: list[str] = field(default_factory=list)
+    max_volume: int = 100

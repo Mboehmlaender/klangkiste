@@ -24,12 +24,20 @@
     "UID_5": {
       "type": "folder",
       "path": "../media/book_5"
+    },
+    "UID_6": {
+      "type": "folder",
+      "path": "../media/book_6"
     }
   },
   "resume": {
     "UID_1": {
       "file_index": 0,
-      "position": 50
+      "position": 12
+    },
+    "UID_2": {
+      "file_index": 1,
+      "position": 0
     }
   }
 }
