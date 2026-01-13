@@ -24,3 +24,6 @@
 /box/media/**
 /box2/media/**
 /gui/backend/media/**
+!/box/media/.keep
+!/box2/media/.keep
+!/gui/backend/media/.keep
