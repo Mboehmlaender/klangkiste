@@ -186,7 +186,7 @@ curl -X POST http://127.0.0.1:8000/command \
 - `/status` aendert sich nach Commands.
 
 6) Abweichungen / Fehlersuche
-- GUI "Failed to fetch": `VITE_BOX_API_URL` pruefen.
+- GUI "Failed to fetch": `VITE_BACKEND_URL` pruefen.
 
 ---
 
@@ -197,7 +197,7 @@ curl -X POST http://127.0.0.1:8000/command \
 
 2) Voraussetzungen
 - Tags in `box/data/box.json`.
-- Medien in `box/data/media`.
+- Medien im Backend unter `gui/backend/media`.
 
 3) Durchfuehrung – Simulation / Emulation
 ```
@@ -245,7 +245,7 @@ curl -X POST http://127.0.0.1:8000/command \
 - Rekursive Reihenfolge (DFS) ist korrekt.
 
 2) Voraussetzungen
-- Verschachtelte Ordner in `box/data/media`.
+- Verschachtelte Ordner im Backend unter `gui/backend/media`.
 
 3) Durchfuehrung – Simulation / Emulation
 - Tag auf `media/book_6` setzen, `nfc_on`.
@@ -310,7 +310,7 @@ curl -X POST http://127.0.0.1:8000/command \
 
 ---
 
-# Server/Pairing-Tests (A-J)
+# Backend/Pairing-Tests (A-J)
 
 ## Test A: Box-Erststart & Identitaet
 
@@ -334,15 +334,21 @@ curl -X POST http://127.0.0.1:8000/command \
 
 ---
 
-## Test B: Announce -> neue Box erscheint im Server
+## Test B: Announce -> neue Box erscheint im Backend
 
 1) Ziel
-- Box meldet sich beim Server und erscheint als UNPAIRED.
+- Box meldet sich beim Backend und erscheint als UNPAIRED.
 
 2) Voraussetzungen
-- Server laeuft:
+- Backend laeuft:
 ```
-python3 server/main.py
+cd gui/backend
+npm run dev
+```
+- Frontend laeuft:
+```
+cd gui/frontend
+npm run dev -- --host 0.0.0.0 --port 5174 --strictPort
 ```
 
 3) Durchfuehrung – Simulation / Emulation
@@ -351,26 +357,26 @@ python3 server/main.py
 python3 box/main.py run
 ```
 - 30-60s warten (Announce-Intervall).
-- Server-GUI oeffnen:
+- Frontend-GUI oeffnen:
 ```
-http://127.0.0.1:7000/ui
+http://127.0.0.1:5174
 ```
-- Optional: Server-Storage pruefen:
+- Optional: Backend-Storage pruefen:
 ```
-cat server/data/boxes.json
+sqlite3 gui/backend/db/klangkiste.sqlite "SELECT box_id, state, last_seen FROM boxes;"
 ```
 
 4) Durchfuehrung – Reale Box (Hardware)
 - Box einschalten.
-- Server-GUI oeffnen, Box sollte erscheinen.
+- Frontend-GUI oeffnen, Box sollte erscheinen.
 
 5) Erwartetes Ergebnis
-- Box erscheint als UNPAIRED in der Server-GUI.
-- `server/data/boxes.json` enthaelt `box_id` und `fingerprint`.
+- Box erscheint als UNPAIRED in der Frontend-GUI.
+- `gui/backend/db/klangkiste.sqlite` enthaelt `box_id` und `fingerprint`.
 
 6) Abweichungen / Fehlersuche
-- Keine Box sichtbar: Server-URL in `box/data/box.json` pruefen.
-- Server nicht erreichbar: Server-Prozess/Port 7000 pruefen.
+- Keine Box sichtbar: Backend-URL in `box/data/box.json` pruefen.
+- Backend nicht erreichbar: Backend-Prozess/Port 5001 pruefen.
 
 ---
 
@@ -387,7 +393,7 @@ cat server/data/boxes.json
 
 4) Durchfuehrung – Reale Box (Hardware)
 - Zwei physische Boxen einschalten.
-- Server-GUI zeigt beide UNPAIRED an.
+- Frontend-GUI zeigt beide UNPAIRED an.
 
 5) Erwartetes Ergebnis
 - Zwei Eintraege mit unterschiedlichen `box_id`.
@@ -397,34 +403,34 @@ cat server/data/boxes.json
 
 ---
 
-## Test D: Pairing-Freigabe ueber Server-GUI
+## Test D: Pairing-Freigabe ueber Frontend-GUI
 
 1) Ziel
 - Pairing liefert API-Token und Box wird PAIRED.
 
 2) Voraussetzungen
-- Box erscheint als UNPAIRED in `/ui`.
+- Box erscheint als UNPAIRED in der Frontend-GUI.
 
 3) Durchfuehrung – Simulation / Emulation
-- Server-GUI oeffnen:
+- Frontend-GUI oeffnen:
 ```
-http://127.0.0.1:7000/ui
+http://127.0.0.1:5174
 ```
-- Button "Box hinzufuegen" klicken.
-- API-Token via Server-API abrufen:
+- Button "Pairen" klicken.
+- API-Token via Backend-API abrufen:
 ```
-curl -X POST http://127.0.0.1:7000/api/boxes/pair   -H "Content-Type: application/json"   -d '{"box_id":"<box_id>"}'
+curl -X POST http://127.0.0.1:5001/api/boxes/pair   -H "Content-Type: application/json"   -d '{"box_id":"<box_id>"}'
 ```
 
 4) Durchfuehrung – Reale Box (Hardware)
-- Gleiches Vorgehen ueber Server-GUI.
+- Gleiches Vorgehen ueber Frontend-GUI.
 
 5) Erwartetes Ergebnis
 - Box erscheint in der gepaarten Liste.
 - `api_token` wird an die Box ausgeliefert.
 
 6) Abweichungen / Fehlersuche
-- Pairing bleibt aus: `server/data/boxes.json` pruefen.
+- Pairing bleibt aus: `gui/backend/db/klangkiste.sqlite` pruefen.
 
 ---
 
@@ -526,24 +532,24 @@ rm -f box/data/box.json box/data/state.json box/data/secrets.enc
 
 ---
 
-## Test I: Offline / Server nicht erreichbar
+## Test I: Offline / Backend nicht erreichbar
 
 1) Ziel
-- Box laeuft weiter ohne Server.
+- Box laeuft weiter ohne Backend.
 
 2) Voraussetzungen
-- Box laeuft, Server gestoppt.
+- Box laeuft, Backend gestoppt.
 
 3) Durchfuehrung – Simulation / Emulation
-- Server stoppen.
+- Backend stoppen.
 - Playback starten (mit Token falls gepairt).
 
 4) Durchfuehrung – Reale Box (Hardware)
-- Server vom Netz trennen.
+- Backend vom Netz trennen.
 
 5) Erwartetes Ergebnis
 - Lokale Playback-Logik laeuft weiter.
-- Server-GUI zeigt Box ggf. als OFFLINE nach Timeout.
+- Nicht testbar mit aktuellem Code: Backend markiert OFFLINE nicht.
 
 6) Abweichungen / Fehlersuche
 - Box stoppt: lokale Logs pruefen.

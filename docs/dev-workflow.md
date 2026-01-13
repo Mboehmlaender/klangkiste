@@ -13,34 +13,41 @@ Start/Stop der virtuellen Box, Logs, und GUI-API-Konfiguration.
 ```
 ./dev.sh
 ```
-- GUI laeuft im Hintergrund.
-- Box laeuft im Vordergrund und akzeptiert CLI-Kommandos.
+- Frontend, Backend und Box laufen im Hintergrund.
+- CLI-Kommandos fuer die Box bitte in einem separaten Terminal absetzen.
 
 ### Komponenten separat starten
 Box only:
 ```
 python3 box/main.py run
 ```
-GUI only:
+Frontend only:
 ```
-cd gui
+cd gui/frontend
+npm run dev -- --host 0.0.0.0 --port 5174 --strictPort
+```
+Backend only:
+```
+cd gui/backend
 npm run dev
 ```
 
 ## Ports / Hosts
-- Server API + GUI: `http://127.0.0.1:7000` (GUI unter `/ui`)
+- Backend API: `http://127.0.0.1:5001`
+- Frontend GUI: `http://127.0.0.1:5174`
 - Box API: `http://127.0.0.1:8000`
 - Setup UI: `http://127.0.0.1:9000/setup`
 - GUI: `http://127.0.0.1:5174`
 
 ## API-URL fuer die GUI
-Default ist `http://localhost:8000`. Override:
+Default ist `http://<HOST-IP>:5001` (aus `hostname -I`). Override:
 ```
-VITE_BOX_API_URL=http://127.0.0.1:8000 npm run dev
+KLANGKISTE_BACKEND_URL=http://<server-ip>:5001 ./dev.sh
+VITE_BACKEND_URL=http://<server-ip>:5001 npm run dev
 ```
 
 ## Logs ansehen
-- Server-Logs: Terminal mit `python3 server/main.py`
+- Backend-Logs: Terminal mit `cd gui/backend && npm run dev`
 - Box-Logs: Terminal mit `python3 box/main.py run`
 - GUI-Logs: Browser-Konsole
 
@@ -52,7 +59,7 @@ VITE_BOX_API_URL=http://127.0.0.1:8000 npm run dev
 - ✅ `./dev.sh` gestartet
 - ✅ Box-CLI Prompt sichtbar
 - ✅ GUI im Browser erreichbar
-- ✅ `curl http://127.0.0.1:8000/status` liefert JSON
+- ✅ `curl http://127.0.0.1:5001/api/boxes` liefert JSON
 
 ## Troubleshooting
 - Port belegt:
@@ -60,4 +67,4 @@ VITE_BOX_API_URL=http://127.0.0.1:8000 npm run dev
 - CORS-Fehler:
   - API muss laufen und erreichbar sein.
 - GUI zeigt "Failed to fetch":
-  - `VITE_BOX_API_URL` pruefen.
+  - `VITE_BACKEND_URL` pruefen.

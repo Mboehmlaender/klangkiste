@@ -1,37 +1,13 @@
 {
-  "box_id": "klangkiste-x1u8i4x5e4",
+  "box_id": "klangkiste-4w8u0c0y1i",
   "settings": {},
-  "tags": {
-    "UID_1": {
-      "type": "folder",
-      "path": "media/book_1"
-    },
-    "UID_2": {
-      "type": "folder",
-      "path": "media/book_2"
-    },
-    "UID_3": {
-      "type": "folder",
-      "path": "media/book_3"
-    },
-    "UID_4": {
-      "type": "folder",
-      "path": "media/book_4"
-    },
-    "UID_5": {
-      "type": "folder",
-      "path": "media/book_5"
-    },
-    "UID_6": {
-      "type": "folder",
-      "path": "media/book_6"
-    }
-  },
-  "server_url": "http://127.0.0.1:7000",
+  "tags": {},
+  "server_url": "http://10.10.10.23:5001",
   "firmware_version": "0.1.0",
   "capabilities": {
     "nfc": true,
     "audio": true,
     "spotify": true
-  }
+  },
+  "blocked_tags": []
 }

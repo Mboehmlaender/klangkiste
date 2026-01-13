@@ -1,0 +1,12 @@
+{
+  "box_id": "klangkiste-c1b9h2f3j5",
+  "settings": {},
+  "tags": {},
+  "server_url": "http://10.10.10.23:5001",
+  "firmware_version": "0.1.0",
+  "capabilities": {
+    "nfc": true,
+    "audio": true,
+    "spotify": true
+  }
+}

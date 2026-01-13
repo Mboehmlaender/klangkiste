@@ -21,22 +21,20 @@ Quickstart (3-5 Minuten):
 http://127.0.0.1:9000/setup
 ```
 3) WLAN-Profil eintragen und speichern.
-4) Status pruefen:
+4) Backend pruefen:
 ```
-curl http://127.0.0.1:8000/status
+curl http://127.0.0.1:5001/api/boxes
 ```
-5) Playback starten:
+5) Frontend oeffnen und Box pairen:
 ```
-curl -X POST http://127.0.0.1:8000/command \
-  -H "Content-Type: application/json" \
-  -d '{"command":"nfc_on","payload":{"uid":"UID_1"}}'
+http://127.0.0.1:5174
 ```
 
 ## Troubleshooting
 - Box startet nicht:
   - Pruefe Abhaengigkeiten und ob Ports 8000/9000 frei sind.
 - GUI erreicht API nicht:
-  - Pruefe `VITE_BOX_API_URL` und Box-Logs.
+  - Pruefe `VITE_BACKEND_URL` und Backend-Logs.
 
 ## Was ist Mock vs. real
 - Mock: WLAN, IP, Spotify, Audio, Hardware. Diese Backends sind logische Simulationen.

@@ -52,4 +52,4 @@ exit | quit
 - Commands nicht gefunden:
   - Aus Repo-Root ausfuehren oder `box/main.py` voll referenzieren.
 - Kein Playback:
-  - Tags in `box/data/box.json` und Medien in `box/data/media` pruefen.
+- Tags in `box/data/box.json` und Medien im Backend unter `gui/backend/media` pruefen.

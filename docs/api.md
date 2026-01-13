@@ -29,6 +29,9 @@ Felder:
 - `connected_ssid`: verbundene SSID oder `null`
 - `wifi_profiles_count`: Anzahl gespeicherter Profile
 - `spotify_status`: `NOT_CONFIGURED | READY`
+- `last_nfc`:
+  - `uid`: letzte erkannte UID oder `null`
+  - `known`: `true` wenn Tag in der Box zugeordnet ist
 - `playback_state`:
   - `state`: `IDLE | PLAYING | PAUSED`
   - `active_uid`
@@ -54,7 +57,7 @@ Beispielantwort:
     "state": "PLAYING",
     "active_uid": "UID_1",
     "playback_root": "media/book_1",
-    "current_file": "/root/klangkiste/box/data/media/book_1/01.mp3",
+    "current_file": "/root/klangkiste/box/data/media/stories/dragons/album_1/track_01.mp3",
     "file_index": 0,
     "position": 42,
     "duration": 180,
@@ -89,6 +92,13 @@ Unterstuetzte Commands:
 - `wifi_reset`
 - `spotify_set_tokens` `{ access_token, refresh_token, expires_at, account_id? }`
 - `spotify_clear`
+- `unpair`
+- `tag_assign` `{ uid, media_path }`
+- `tag_remove` `{ uid }`
+
+## Tag-Commands
+- `tag_assign` `{ uid, media_path }` weist ein Tag einem Medienordner zu.
+- `tag_remove` `{ uid }` entfernt die Zuordnung fuer ein Tag.
 
 ## Auth fuer Commands
 - Vor Pairing sind nur diese Commands erlaubt:

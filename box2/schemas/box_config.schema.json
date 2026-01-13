@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://klangkiste.local/schemas/box_config.schema.json",
+  "title": "BoxConfig",
+  "type": "object",
+  "required": ["box_id", "settings", "tags"],
+  "properties": {
+    "box_id": {"type": "string"},
+    "settings": {
+      "type": "object",
+      "required": ["max_volume", "default_volume"],
+      "properties": {
+        "max_volume": {"type": "integer", "minimum": 0, "maximum": 100},
+        "default_volume": {"type": "integer", "minimum": 0, "maximum": 100}
+      },
+      "additionalProperties": false
+    },
+    "tags": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type", "path"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["folder"]
+          },
+          "path": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "resume": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["file_index", "position"],
+        "properties": {
+          "file_index": {"type": "integer", "minimum": 0},
+          "position": {"type": "integer", "minimum": 0}
+        },
+        "additionalProperties": false
+      }
+    },
+    "server_reachable": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

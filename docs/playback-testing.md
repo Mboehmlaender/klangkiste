@@ -5,7 +5,8 @@ Tests fuer NFC-Playback, Rekursion, Resume und Buttons.
 
 ## Voraussetzungen
 - Box laeuft: `python3 box/main.py run`
-- Medien unter `box/data/media/`
+- Medienkatalog unter `gui/backend/media/`
+- Box spielt nur Medien, die ueber Tags zugeordnet wurden.
 
 ## Schritt-fuer-Schritt
 ### NFC-Simulation
@@ -57,6 +58,6 @@ Erwartung: UID_1 resumed.
 ## Troubleshooting
 - Kein Playback:
   - Tags in `box/data/box.json` pruefen.
-  - Dateien in `box/data/media` pruefen.
+- Medienordner im Backend pruefen (`gui/backend/media`).
 - Duration = 0:
   - Unbekannte Dateinamen -> Hash-Dauer, nicht 0.

@@ -14,19 +14,19 @@ Nutze die Sektionen nach Symptomen.
 ### GUI zeigt "Failed to fetch"
 - API pruefen:
 ```
-curl http://127.0.0.1:8000/status
+curl http://127.0.0.1:5001/api/boxes
 ```
 - GUI API-Base pruefen:
-  - `VITE_BOX_API_URL` oder Default `http://localhost:8000`
+  - `VITE_BACKEND_URL` oder Default `http://127.0.0.1:5001`
 
 ### Playback startet nicht
 - Tags pruefen:
 ```
 cat box/data/box.json
 ```
-- Medien pruefen:
+- Medienkatalog pruefen:
 ```
-ls -la box/data/media
+ls -la gui/backend/media
 ```
 - Status pruefen:
 ```
@@ -44,10 +44,10 @@ cat box/data/state.json
 - Port 9000 frei?
 - Box laeuft?
 
-### Box wird nicht erkannt (Server)
+### Box wird nicht erkannt (Backend)
 - Server-URL in `box/data/box.json` pruefen (`server_url`).
-- Server laeuft auf Port 7000?
-- `server/data/boxes.json` pruefen.
+- Backend laeuft auf Port 5001?
+- `gui/backend/db/klangkiste.sqlite` pruefen.
 
 ### Box erscheint mehrfach
 - `box_id` in `box/data/box.json` pruefen.
@@ -58,7 +58,7 @@ cat box/data/state.json
 - `box/data/box.json` darf nicht geloescht werden.
 
 ### Pairing haengt
-- `server/data/boxes.json` pruefen: state, api_token.
+- `gui/backend/db/klangkiste.sqlite` pruefen: state, api_token.
 - Box-Status: `pairing_state` in `/status` pruefen.
 
 ## Reale Box (Hardware)
@@ -76,7 +76,7 @@ cat box/data/state.json
 - Nicht testbar mit aktuellem Code.
 
 ### Box wird nicht erkannt / erscheint mehrfach / Fingerprint wechselt / Pairing haengt
-- Server-GUI (`/ui`) pruefen.
+- Frontend-GUI (`http://127.0.0.1:5174`) pruefen.
 - Box-IP/Server-IP/VLAN pruefen.
 - Box-Logs pruefen.
 
