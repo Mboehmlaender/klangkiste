@@ -1,6 +1,6 @@
 const defaultHost =
   typeof window !== 'undefined' && window.location ? window.location.hostname : '127.0.0.1';
-const API_BASE = import.meta.env.VITE_BACKEND_URL || `http://${defaultHost}:5001`;
+const API_BASE = '/api';
 
 async function readJson(response) {
   const text = await response.text();
@@ -12,12 +12,12 @@ async function readJson(response) {
 }
 
 export async function getBoxes() {
-  const response = await fetch(`${API_BASE}/api/boxes`);
+  const response = await fetch(`${API_BASE}/boxes`);
   return readJson(response);
 }
 
 export async function pairBox(boxId) {
-  const response = await fetch(`${API_BASE}/api/boxes/pair`, {
+  const response = await fetch(`${API_BASE}/boxes/pair`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ box_id: boxId }),
@@ -26,17 +26,17 @@ export async function pairBox(boxId) {
 }
 
 export async function getStatus(boxId) {
-  const response = await fetch(`${API_BASE}/api/boxes/${boxId}/status`);
+  const response = await fetch(`${API_BASE}/boxes/${boxId}/status`);
   return readJson(response);
 }
 
 export async function getMediaTree() {
-  const response = await fetch(`${API_BASE}/api/media-tree`);
+  const response = await fetch(`${API_BASE}/media-tree`);
   return readJson(response);
 }
 
 export async function createMediaFolder(parentPath, name) {
-  const response = await fetch(`${API_BASE}/api/media/folder`, {
+  const response = await fetch(`${API_BASE}/media/folder`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ parent_path: parentPath, name }),
@@ -45,7 +45,7 @@ export async function createMediaFolder(parentPath, name) {
 }
 
 export async function renameMedia(path, name) {
-  const response = await fetch(`${API_BASE}/api/media/rename`, {
+  const response = await fetch(`${API_BASE}/media/rename`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ path, name }),
@@ -54,7 +54,7 @@ export async function renameMedia(path, name) {
 }
 
 export async function moveMedia(path, targetParent) {
-  const response = await fetch(`${API_BASE}/api/media/move`, {
+  const response = await fetch(`${API_BASE}/media/move`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ path, target_parent: targetParent }),
@@ -63,7 +63,7 @@ export async function moveMedia(path, targetParent) {
 }
 
 export async function deleteMedia(path) {
-  const response = await fetch(`${API_BASE}/api/media/delete`, {
+  const response = await fetch(`${API_BASE}/media/delete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ path }),
@@ -80,7 +80,7 @@ export function uploadMedia(targetPath, files, onProgress) {
 
   return new Promise((resolve) => {
     const request = new XMLHttpRequest();
-    request.open('POST', `${API_BASE}/api/media/upload`);
+    request.open('POST', `${API_BASE}/media/upload`);
     request.upload.onprogress = (event) => {
       if (!event.lengthComputable || !onProgress) return;
       const percent = Math.round((event.loaded / event.total) * 100);
@@ -106,12 +106,12 @@ export function uploadMedia(targetPath, files, onProgress) {
 }
 
 export async function getTags() {
-  const response = await fetch(`${API_BASE}/api/tags`);
+  const response = await fetch(`${API_BASE}/tags`);
   return readJson(response);
 }
 
 export async function generateTag(label) {
-  const response = await fetch(`${API_BASE}/api/tags/generate`, {
+  const response = await fetch(`${API_BASE}/tags/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ label }),
@@ -120,7 +120,7 @@ export async function generateTag(label) {
 }
 
 export async function claimTag(uid, label) {
-  const response = await fetch(`${API_BASE}/api/tags/claim`, {
+  const response = await fetch(`${API_BASE}/tags/claim`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ uid, label }),
@@ -129,7 +129,7 @@ export async function claimTag(uid, label) {
 }
 
 export async function markTagWritten(uid) {
-  const response = await fetch(`${API_BASE}/api/tags/${uid}/write`, {
+  const response = await fetch(`${API_BASE}/tags/${uid}/write`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -137,22 +137,22 @@ export async function markTagWritten(uid) {
 }
 
 export async function getBoxTags(boxId) {
-  const response = await fetch(`${API_BASE}/api/boxes/${boxId}/tags`);
+  const response = await fetch(`${API_BASE}/boxes/${boxId}/tags`);
   return readJson(response);
 }
 
 export async function getBoxLocalTags(boxId) {
-  const response = await fetch(`${API_BASE}/api/boxes/${boxId}/local-tags`);
+  const response = await fetch(`${API_BASE}/boxes/${boxId}/local-tags`);
   return readJson(response);
 }
 
 export async function getTagBlocks(boxId) {
-  const response = await fetch(`${API_BASE}/api/boxes/${boxId}/tag-blocks`);
+  const response = await fetch(`${API_BASE}/boxes/${boxId}/tag-blocks`);
   return readJson(response);
 }
 
 export async function setTagBlock(boxId, uid, blocked) {
-  const response = await fetch(`${API_BASE}/api/boxes/${boxId}/tag-blocks`, {
+  const response = await fetch(`${API_BASE}/boxes/${boxId}/tag-blocks`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ uid, blocked }),
@@ -161,7 +161,7 @@ export async function setTagBlock(boxId, uid, blocked) {
 }
 
 export async function setBoxAlias(boxId, alias) {
-  const response = await fetch(`${API_BASE}/api/boxes/${boxId}/alias`, {
+  const response = await fetch(`${API_BASE}/boxes/${boxId}/alias`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ alias }),
@@ -170,7 +170,7 @@ export async function setBoxAlias(boxId, alias) {
 }
 
 export async function setTagAlias(uid, alias) {
-  const response = await fetch(`${API_BASE}/api/tags/${uid}/alias`, {
+  const response = await fetch(`${API_BASE}/tags/${uid}/alias`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ alias }),
@@ -179,7 +179,7 @@ export async function setTagAlias(uid, alias) {
 }
 
 export async function assignTag(uid, boxId) {
-  const response = await fetch(`${API_BASE}/api/tags/${uid}/assign`, {
+  const response = await fetch(`${API_BASE}/tags/${uid}/assign`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ box_id: boxId }),
@@ -188,7 +188,7 @@ export async function assignTag(uid, boxId) {
 }
 
 export async function unassignTag(uid, boxId) {
-  const response = await fetch(`${API_BASE}/api/tags/${uid}/unassign`, {
+  const response = await fetch(`${API_BASE}/tags/${uid}/unassign`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ box_id: boxId }),
@@ -197,14 +197,14 @@ export async function unassignTag(uid, boxId) {
 }
 
 export async function deleteTag(uid) {
-  const response = await fetch(`${API_BASE}/api/tags/${uid}`, {
+  const response = await fetch(`${API_BASE}/tags/${uid}`, {
     method: 'DELETE',
   });
   return readJson(response);
 }
 
 export async function setTagMedia(uid, mediaPath) {
-  const response = await fetch(`${API_BASE}/api/tags/${uid}/media`, {
+  const response = await fetch(`${API_BASE}/tags/${uid}/media`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ media_path: mediaPath }),
@@ -213,7 +213,7 @@ export async function setTagMedia(uid, mediaPath) {
 }
 
 export async function pullTagFromBox(boxId, uid, targetFolder) {
-  const response = await fetch(`${API_BASE}/api/boxes/${boxId}/pull-tag`, {
+  const response = await fetch(`${API_BASE}/boxes/${boxId}/pull-tag`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ uid, target_folder: targetFolder }),
@@ -222,7 +222,7 @@ export async function pullTagFromBox(boxId, uid, targetFolder) {
 }
 
 export async function sendCommand(boxId, command, payload = {}) {
-  const response = await fetch(`${API_BASE}/api/boxes/${boxId}/command`, {
+  const response = await fetch(`${API_BASE}/boxes/${boxId}/command`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ command, payload }),
@@ -231,7 +231,7 @@ export async function sendCommand(boxId, command, payload = {}) {
 }
 
 export async function unpairBox(boxId) {
-  const response = await fetch(`${API_BASE}/api/boxes/${boxId}/unpair`, {
+  const response = await fetch(`${API_BASE}/boxes/${boxId}/unpair`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   });

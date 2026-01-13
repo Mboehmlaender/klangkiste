@@ -567,7 +567,7 @@ export default function App() {
   }
 
   async function handleCreateFolder() {
-    if (!newFolderName.trim()) {
+    if (!uploadAfterCreate && !newFolderName.trim()) {
       addToast('error', 'Ordnername fehlt.');
       return;
     }
@@ -575,23 +575,33 @@ export default function App() {
       addToast('error', 'Bitte Audiodateien auswaehlen.');
       return;
     }
-    const response = await createMediaFolder(currentPath, newFolderName.trim());
-    if (!response.ok) {
-      addToast('error', response.data.detail || 'Ordner anlegen fehlgeschlagen.');
+
+    const trimmedName = newFolderName.trim();
+    const needsFolder = uploadAfterCreate && !trimmedName && !currentPath;
+    if (needsFolder) {
+      addToast('error', 'Bitte zuerst einen Ordner anlegen.');
       return;
     }
-    const createdPath = currentPath
-      ? `${currentPath}/${newFolderName.trim()}`
-      : newFolderName.trim();
+
+    let targetPath = currentPath;
+    if (trimmedName) {
+      const response = await createMediaFolder(currentPath, trimmedName);
+      if (!response.ok) {
+        addToast('error', response.data.detail || 'Ordner anlegen fehlgeschlagen.');
+        return;
+      }
+      targetPath = currentPath ? `${currentPath}/${trimmedName}` : trimmedName;
+      addToast('success', 'Ordner angelegt.');
+      await handleMediaRefresh();
+    }
+
     setNewFolderName('');
-    addToast('success', 'Ordner angelegt.');
-    await handleMediaRefresh();
     if (uploadAfterCreate) {
       setActiveUploadLabel(`Upload: ${pendingUploadFiles.length} Datei(en)`);
       setUploadInProgress(true);
       setUploadProgress(0);
       const uploadResponse = await uploadMedia(
-        createdPath,
+        targetPath,
         pendingUploadFiles,
         (percent) => setUploadProgress(percent)
       );
@@ -604,14 +614,16 @@ export default function App() {
       setActiveUploadLabel('');
       setUploadAfterCreate(false);
       setPendingUploadFiles([]);
-      setCurrentPath(createdPath);
+      if (targetPath) {
+        setCurrentPath(targetPath);
+      }
       addToast('success', 'Upload abgeschlossen.');
       await handleMediaRefresh();
       setActiveModal('');
+      return;
     }
-    if (!uploadAfterCreate) {
-      setActiveModal('');
-    }
+
+    setActiveModal('');
   }
 
   async function handleRename() {
@@ -1442,11 +1454,15 @@ export default function App() {
           >
             {activeModal === 'new-folder' && (
               <>
-                <h3>Neuen Ordner anlegen</h3>
+                <h3>{uploadAfterCreate ? 'Upload vorbereiten' : 'Neuen Ordner anlegen'}</h3>
                 <input
                   value={newFolderName}
                   onChange={(event) => setNewFolderName(event.target.value)}
-                  placeholder="Ordnername"
+                  placeholder={
+                    uploadAfterCreate
+                      ? 'Optionaler Ordnername (leer = aktueller Ordner)'
+                      : 'Ordnername'
+                  }
                 />
                 {uploadAfterCreate && (
                   <>
@@ -1509,7 +1525,9 @@ export default function App() {
                         }}
                       />
                     </div>
-                    <p className="muted">Upload startet direkt nach dem Anlegen.</p>
+                    <p className="muted">
+                      Upload startet direkt. Ohne Ordnername landet er im aktuellen Ordner.
+                    </p>
                     {uploadInProgress && (
                       <div className="upload-progress">
                         <div style={{ width: `${uploadProgress}%` }} />
@@ -1894,23 +1912,15 @@ export default function App() {
                     className="icon-button upload"
                     title="Upload"
                     onClick={(event) => {
-                      if (!currentPath) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        addToast('error', 'Bitte zuerst einen Ordner anlegen.');
-                        setUploadAfterCreate(true);
-                        setPendingUploadFiles([]);
-                        setActiveModal('new-folder');
-                      }
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setUploadAfterCreate(true);
+                      setPendingUploadFiles([]);
+                      setNewFolderName('');
+                      setActiveModal('new-folder');
                     }}
                   >
                     <UploadSimple size={16} />
-                    <input
-                      type="file"
-                      multiple
-                      onChange={handleUpload}
-                      accept="audio/*"
-                    />
                   </label>
                 </div>
               </div>
