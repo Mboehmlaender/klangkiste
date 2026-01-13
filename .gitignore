@@ -1,0 +1,26 @@
+/.idea/
+/.vscode/
+/.DS_Store
+**/.DS_Store
+
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Node
+**/node_modules/
+**/dist/
+**/.vite/
+**/npm-debug.log*
+**/yarn-error.log*
+
+# Local data + databases
+**/*.sqlite
+**/*.sqlite3
+**/*.db
+
+# Media contents (keep folder structure, ignore files)
+/box/media/**
+/box2/media/**
+/gui/backend/media/**
