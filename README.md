@@ -11,8 +11,10 @@ einfache Web-Oberflaeche.
 - Playback-Steuerung (simuliert): Play/Pause, Next, Prev, Stop, Volume.
 - Medienverwaltung: Ordnerstruktur anzeigen, Uploads, Umbenennen, Verschieben,
   Loeschen.
+- Eigene Medienverwaltung ohne Cloud-Abhaengigkeit.
 - Box-Verwaltung: Pairing/Unpairing, Box-Status, Commands an einzelne Boxen.
 - Tag-Verwaltung: Alias, Zuordnung, Sperren pro Box, Import von lokalen Tags.
+- Tag-Matrix mit Sperren pro Box (Whitelist/Block-Logik).
 - Offline-Logik (simuliert): Box arbeitet mit lokalem Cache, Server kann wieder
   synchronisieren.
 - Mehrere Boxen gleichzeitig (box + box2) fuer Multi-Box-Tests.
@@ -23,6 +25,17 @@ einfache Web-Oberflaeche.
 - Robuste Setup-Flows fuer WLAN, Updates und Fehlerdiagnose.
 - Feinschliff der GUI (Mobile-Flows, Accessibility, klare Nutzerfuehrung).
 - Vereinfachte Installation fuer Familien (Image/Installer).
+- Anbindung externer Server und Rueckfuehrung der dortigen Medien auf den
+  eigenen Server inkl. Tag-Erstellung.
+
+## Abgrenzung zu gaengigen Audioboxen
+Klangkiste verfolgt einen anderen Ansatz als gaengige Audioboxen:
+- Keine proprietaeren Cloud-Bindungen: Inhalte liegen lokal und bleiben
+  voll kontrollierbar.
+- Eigene Medien und Ordnerstrukturen statt geschlossener Oekosysteme.
+- Flexible Server-Anbindung (geplant), inkl. Rueckfuehrung und Tag-Workflows.
+- Tag-Matrix und Sperren pro Box fuer feinere Kontrolle in Mehrbox-Setups.
+- Vollstaendige Transparenz durch offene APIs und lokale Datenhaltung.
 
 ## Status
 Phase 1.x – lokale Entwicklung ohne Hardware (Mocks + API + GUI)
