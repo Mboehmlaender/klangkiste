@@ -1,48 +1,62 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowUp,
   ArrowRight,
+  ArrowUp,
   CaretDown,
   CaretRight,
-  FloppyDisk,
   FileAudio,
+  FloppyDisk,
   Folder,
-  List,
   PencilSimple,
   Plus,
   Trash,
   UploadSimple,
 } from '@phosphor-icons/react';
+import { Avatar } from 'primereact/avatar';
+import { Badge } from 'primereact/badge';
+import { Button } from 'primereact/button';
+import { Card } from 'primereact/card';
+import { Divider } from 'primereact/divider';
+import { InputText } from 'primereact/inputtext';
+import { Tag } from 'primereact/tag';
 import {
-  getBoxes,
-  getStatus,
-  getMediaTree,
-  createMediaFolder,
-  renameMedia,
-  moveMedia,
-  deleteMedia,
-  uploadMedia,
-  getTags,
-  getBoxTags,
-  getBoxLocalTags,
-  getTagBlocks,
-  claimTag,
-  markTagWritten,
   assignTag,
-  unassignTag,
+  claimTag,
+  createMediaFolder,
+  deleteMedia,
   deleteTag,
-  setTagMedia,
+  getBoxes,
+  getBoxLocalTags,
+  getBoxTags,
+  getMediaTree,
+  getStatus,
+  getTagBlocks,
+  getTags,
+  markTagWritten,
+  moveMedia,
+  pairBox,
   pullTagFromBox,
-  setTagBlock,
+  renameMedia,
+  sendCommand,
   setBoxAlias,
   setTagAlias,
-  pairBox,
-  sendCommand,
+  setTagBlock,
+  setTagMedia,
+  unassignTag,
   unpairBox,
+  uploadMedia,
 } from './api.js';
 
 const BOX_POLL_MS = 1500;
 const STATUS_POLL_MS = 1000;
+
+const NAV_ITEMS = [
+  { id: 'dashboard', label: 'Dashboard', icon: 'pi pi-home' },
+  { id: 'boxes', label: 'Boxen', icon: 'pi pi-box' },
+  { id: 'media', label: 'Medien', icon: 'pi pi-folder-open' },
+  { id: 'tags', label: 'Tags', icon: 'pi pi-tags' },
+  { id: 'settings', label: 'Einstellungen', icon: 'pi pi-cog' },
+];
 
 function formatTime(ts) {
   if (!ts) return '-';
@@ -91,7 +105,45 @@ function generateTagId() {
   return generated;
 }
 
+function generateHardwareUid() {
+  const bytes = [];
+  for (let i = 0; i < 7; i += 1) {
+    bytes.push(Math.floor(Math.random() * 256));
+  }
+  return bytes
+    .map((value) => value.toString(16).padStart(2, '0').toUpperCase())
+    .join(':');
+}
+
+function SectionHeader({ title, subtitle, actions }) {
+  return (
+    <div className="section-header">
+      <div>
+        <h1>{title}</h1>
+        <p>{subtitle}</p>
+      </div>
+      <div className="section-actions">{actions}</div>
+    </div>
+  );
+}
+
+function StatGrid({ items }) {
+  return (
+    <div className="stat-grid">
+      {items.map((card) => (
+        <Card key={card.label} className="stat-card">
+          <p className="stat-label">{card.label}</p>
+          <div className="stat-value">{card.value}</div>
+          <span className="stat-helper">{card.helper}</span>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
+  const [activeSection, setActiveSection] = useState('dashboard');
+  const [searchValue, setSearchValue] = useState('');
   const [boxes, setBoxes] = useState([]);
   const [selectedId, setSelectedId] = useState('');
   const [status, setStatus] = useState(null);
@@ -139,6 +191,9 @@ export default function App() {
   const [toasts, setToasts] = useState([]);
   const [tagAliasDrafts, setTagAliasDrafts] = useState({});
   const [boxAliasDrafts, setBoxAliasDrafts] = useState({});
+  const [showSessionSheet, setShowSessionSheet] = useState(false);
+  const [lastHardwareUid, setLastHardwareUid] = useState({ uid: '', hardwareUid: '' });
+  const [simulatedNfc, setSimulatedNfc] = useState(null);
 
   function addToast(type, message) {
     const id = `${Date.now()}-${toastCounter.current}`;
@@ -186,7 +241,10 @@ export default function App() {
     }
     window.addEventListener('mousedown', handleOutside);
     window.addEventListener('mouseup', handleMouseUp);
-    return () => window.removeEventListener('mousedown', handleOutside);
+    return () => {
+      window.removeEventListener('mousedown', handleOutside);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
   }, [activeModal]);
 
   useEffect(() => {
@@ -311,22 +369,18 @@ export default function App() {
 
   useEffect(() => {
     const lastNfc = status?.last_nfc;
-    if (!lastNfc || lastNfc.known || !lastNfc.uid) {
+    if (!lastNfc || !lastNfc.uid) {
       return;
     }
-    const key = `${status?.last_nfc_at ?? ''}:${lastNfc.uid ?? ''}`;
-    if (lastNfcKeyRef.current === key) {
-      return;
-    }
-    lastNfcKeyRef.current = key;
-    setScanTagLabel('');
-    setScanMediaPath('');
-    const hasUid = Boolean(lastNfc.uid);
-    const existsInDb = hasUid && tags.some((tag) => tag.uid === lastNfc.uid);
-    if (existsInDb) {
+    if (!lastNfc.known) {
+      const key = `${status?.last_nfc_at ?? ''}:${lastNfc.uid ?? ''}`;
+      if (lastNfcKeyRef.current === key) {
+        return;
+      }
+      lastNfcKeyRef.current = key;
+      setScanTagLabel('');
+      setScanMediaPath('');
       setScanTagUid(lastNfc.uid);
-    } else {
-      setScanTagUid(generateTagId());
     }
   }, [status, tags]);
 
@@ -455,31 +509,90 @@ export default function App() {
     };
   }, [mediaTree, topLevelFolders]);
 
+  const dashboardStats = useMemo(() => {
+    const sizeLabel = mediaTree ? formatSize(mediaTree.size) : '-';
+    const freeLabel = mediaTree ? formatSize(mediaTree.free_bytes) : '-';
+    return [
+      {
+        label: 'Gepairte Boxen',
+        value: paired.length,
+        helper: `${unpaired.length} neu`,
+      },
+      {
+        label: 'Tags gesamt',
+        value: tags.length,
+        helper: `${boxTags.length} auf Box`,
+      },
+      {
+        label: 'Medien gesamt',
+        value: sizeLabel,
+        helper: `frei ${freeLabel}`,
+      },
+      {
+        label: 'Letzter NFC',
+        value: status?.last_nfc?.uid || '-',
+        helper: status?.last_nfc_at ? formatTime(status.last_nfc_at) : '-',
+      },
+    ];
+  }, [paired.length, unpaired.length, tags.length, boxTags.length, mediaTree, status]);
+
   async function handlePair(boxId) {
     const response = await pairBox(boxId);
     if (!response.ok) {
-      setError(response.data.detail || 'Pairing fehlgeschlagen.');
-      addToast('error', response.data.detail || 'Pairing fehlgeschlagen.');
+      setError(response.data.detail || 'Box pairing fehlgeschlagen.');
+      addToast('error', response.data.detail || 'Box pairing fehlgeschlagen.');
       return;
     }
-    setError('');
-    addToast('success', `Box ${boxId} gepairt.`);
+    addToast('success', 'Box gepairt.');
+    const updated = await getBoxes();
+    if (updated.ok) {
+      setBoxes(updated.data.boxes || []);
+    }
   }
 
   async function handleCommand(command, payload = {}) {
     if (!selectedId) {
-      setError('Bitte zuerst eine gepairte Box auswaehlen.');
-      addToast('error', 'Bitte zuerst eine gepairte Box auswaehlen.');
+      setError('Bitte zuerst eine Box auswaehlen.');
+      addToast('error', 'Bitte zuerst eine Box auswaehlen.');
       return;
     }
-    const response = await sendCommand(selectedId, command, payload);
+    let nextPayload = payload;
+    if (command === 'nfc_on' || command === 'nfc_off') {
+      const rawUid = typeof payload?.uid === 'string' ? payload.uid.trim() : '';
+      let uid = rawUid;
+      if (!uid) {
+        if (command === 'nfc_on') {
+          setSimulatedNfc({
+            uid: '',
+            known: false,
+            hardwareUid: generateHardwareUid(),
+            at: Date.now(),
+          });
+          setScanTagLabel('');
+          setScanMediaPath('');
+          if (!scanTagUid) {
+            setScanTagUid(generateTagId());
+          }
+          return;
+        }
+        setError('Bitte eine UID angeben.');
+        addToast('error', 'Bitte eine UID angeben.');
+        return;
+      }
+      nextPayload = { ...payload, uid };
+      if (command === 'nfc_on') {
+        setLastHardwareUid({ uid, hardwareUid: generateHardwareUid() });
+        setSimulatedNfc(null);
+      }
+    }
+    const response = await sendCommand(selectedId, command, nextPayload);
     if (!response.ok) {
       setError(response.data.detail || 'Command fehlgeschlagen.');
       addToast('error', response.data.detail || 'Command fehlgeschlagen.');
       return;
     }
     setError('');
-    addToast('success', `Command ausgefuehrt: ${command}`);
+    addToast('success', 'Command gesendet.');
   }
 
   async function handleUnpair(boxId) {
@@ -489,25 +602,22 @@ export default function App() {
       addToast('error', response.data.detail || 'Unpair fehlgeschlagen.');
       return;
     }
-    if (selectedId === boxId) {
-      setSelectedId('');
-      setStatus(null);
+    addToast('success', 'Box unpaired.');
+    const updated = await getBoxes();
+    if (updated.ok) {
+      setBoxes(updated.data.boxes || []);
     }
-    setError('');
-    addToast('success', `Box ${boxId} entkoppelt.`);
   }
 
   async function handleMediaRefresh() {
     const response = await getMediaTree();
     if (!response.ok) {
       setMediaError(response.data.detail || 'Medien nicht verfuegbar.');
-      addToast('error', response.data.detail || 'Medien nicht verfuegbar.');
       setMediaTree(null);
       return;
     }
     setMediaTree(response.data);
     setMediaError('');
-    addToast('success', 'Medienliste aktualisiert.');
   }
 
   function getNodeByPath(node, targetPath) {
@@ -522,240 +632,187 @@ export default function App() {
   }
 
   function listChildren(node) {
-    if (!node || !Array.isArray(node.children)) return [];
-    const folders = node.children.filter((child) => child.type === 'folder');
-    const files = node.children.filter((child) => child.type === 'file');
-    folders.sort((a, b) => a.name.localeCompare(b.name));
-    files.sort((a, b) => a.name.localeCompare(b.name));
-    return [...folders, ...files];
+    if (!node) return [];
+    if (!Array.isArray(node.children)) return [];
+    return node.children;
   }
 
   function buildBreadcrumb(pathValue) {
     if (!pathValue) return [];
     const parts = pathValue.split('/').filter(Boolean);
-    const crumbs = [];
-    let acc = '';
-    parts.forEach((part) => {
-      acc = acc ? `${acc}/${part}` : part;
-      crumbs.push({ name: part, path: acc });
-    });
-    return crumbs;
+    return parts.map((part, index) => ({
+      name: part,
+      path: parts.slice(0, index + 1).join('/'),
+    }));
   }
 
   function collectTopLevelFolders(node) {
     if (!node || !Array.isArray(node.children)) return [];
     return node.children
-      .filter((child) => child.type === 'folder' && child.path)
+      .filter((child) => child.type === 'folder')
       .map((child) => child.path);
   }
 
   function collectFolderPaths(node) {
     if (!node || node.type !== 'folder') return [];
-    const paths = [];
-    if (node.path) paths.push(node.path);
-    if (!Array.isArray(node.children)) return paths;
+    const entries = [node.path || ''];
+    if (!Array.isArray(node.children)) return entries;
     node.children.forEach((child) => {
-      if (child.type === 'folder') {
-        paths.push(...collectFolderPaths(child));
-      }
+      if (child.type !== 'folder') return;
+      entries.push(...collectFolderPaths(child));
     });
-    return paths;
+    return entries;
   }
 
   function isSelected(pathValue) {
-    return selectedPaths.includes(pathValue);
+    return selectedPaths.includes(pathValue || '');
   }
 
   async function handleCreateFolder() {
-    if (!uploadAfterCreate && !newFolderName.trim()) {
-      addToast('error', 'Ordnername fehlt.');
-      return;
-    }
-    if (uploadAfterCreate && pendingUploadFiles.length === 0) {
-      addToast('error', 'Bitte Audiodateien auswaehlen.');
-      return;
-    }
-
     const trimmedName = newFolderName.trim();
-    const needsFolder = uploadAfterCreate && !trimmedName && !currentPath;
-    if (needsFolder) {
-      addToast('error', 'Bitte zuerst einen Ordner anlegen.');
-      return;
-    }
-
-    let targetPath = currentPath;
-    if (trimmedName) {
-      const response = await createMediaFolder(currentPath, trimmedName);
-      if (!response.ok) {
-        addToast('error', response.data.detail || 'Ordner anlegen fehlgeschlagen.');
-        return;
-      }
-      targetPath = currentPath ? `${currentPath}/${trimmedName}` : trimmedName;
-      addToast('success', 'Ordner angelegt.');
-      await handleMediaRefresh();
-    }
-
-    setNewFolderName('');
-    if (uploadAfterCreate) {
-      setActiveUploadLabel(`Upload: ${pendingUploadFiles.length} Datei(en)`);
+    if (uploadAfterCreate && pendingUploadFiles.length > 0) {
+      const targetPath = trimmedName ? `${currentPath}/${trimmedName}` : currentPath;
       setUploadInProgress(true);
-      setUploadProgress(0);
+      setActiveUploadLabel(
+        pendingUploadFiles.length ? `Upload: ${pendingUploadFiles.length} Datei(en)` : ''
+      );
       const uploadResponse = await uploadMedia(
         targetPath,
         pendingUploadFiles,
         (percent) => setUploadProgress(percent)
       );
-      if (!uploadResponse.ok) {
-        addToast('error', uploadResponse.data.detail || 'Upload fehlgeschlagen.');
-        setUploadInProgress(false);
-        return;
-      }
       setUploadInProgress(false);
-      setActiveUploadLabel('');
-      setUploadAfterCreate(false);
-      setPendingUploadFiles([]);
-      if (targetPath) {
-        setCurrentPath(targetPath);
+      setUploadProgress(0);
+      if (!uploadResponse.ok) {
+        setMediaError(uploadResponse.data.detail || 'Upload fehlgeschlagen.');
+        addToast('error', uploadResponse.data.detail || 'Upload fehlgeschlagen.');
+        return;
       }
       addToast('success', 'Upload abgeschlossen.');
       await handleMediaRefresh();
       setActiveModal('');
+      setUploadAfterCreate(false);
+      setPendingUploadFiles([]);
+      setNewFolderName('');
       return;
     }
 
+    if (!trimmedName && !uploadAfterCreate) {
+      setMediaError('Bitte einen Ordnernamen angeben.');
+      return;
+    }
+
+    const response = await createMediaFolder(currentPath, trimmedName);
+    if (!response.ok) {
+      setMediaError(response.data.detail || 'Ordner anlegen fehlgeschlagen.');
+      addToast('error', response.data.detail || 'Ordner anlegen fehlgeschlagen.');
+      return;
+    }
+    addToast('success', 'Ordner angelegt.');
+    setNewFolderName('');
     setActiveModal('');
+    await handleMediaRefresh();
   }
 
   async function handleRename() {
-    if (selectedPaths.length !== 1) {
-      addToast('error', 'Bitte zuerst einen Eintrag waehlen.');
-      return;
-    }
-    if (!renameName.trim()) {
-      addToast('error', 'Neuer Name fehlt.');
-      return;
-    }
+    if (!selectedPaths.length) return;
     const response = await renameMedia(selectedPaths[0], renameName.trim());
     if (!response.ok) {
+      setMediaError(response.data.detail || 'Umbenennen fehlgeschlagen.');
       addToast('error', response.data.detail || 'Umbenennen fehlgeschlagen.');
       return;
     }
+    addToast('success', 'Eintrag umbenannt.');
+    setRenameName('');
     setActiveModal('');
-    addToast('success', 'Umbenannt.');
     await handleMediaRefresh();
   }
 
   async function handleDeleteSelected() {
-    if (selectedPaths.length === 0) {
-      addToast('error', 'Bitte zuerst einen Eintrag waehlen.');
-      return;
-    }
+    if (!selectedPaths.length) return;
     for (const pathValue of selectedPaths) {
       const response = await deleteMedia(pathValue);
       if (!response.ok) {
+        setMediaError(response.data.detail || 'Loeschen fehlgeschlagen.');
         addToast('error', response.data.detail || 'Loeschen fehlgeschlagen.');
         return;
       }
     }
+    addToast('success', 'Eintraege geloescht.');
     setSelectedPaths([]);
-    setRenameName('');
     setActiveModal('');
-    addToast('success', 'Geloescht.');
     await handleMediaRefresh();
   }
 
   async function handleMoveSelected() {
-    if (selectedPaths.length === 0) {
-      addToast('error', 'Bitte zuerst einen Eintrag waehlen.');
+    if (!selectedPaths.length) return;
+    const pathValue = selectedPaths[0];
+    const isRootTarget = moveTarget === '__root__' || moveTarget === '';
+    const response = await moveMedia(pathValue, isRootTarget ? '' : moveTarget);
+    if (!response.ok) {
+      setMediaError(response.data.detail || 'Verschieben fehlgeschlagen.');
+      addToast('error', response.data.detail || 'Verschieben fehlgeschlagen.');
       return;
     }
-    if (!moveTarget) {
-      addToast('error', 'Bitte Zielordner waehlen.');
-      return;
-    }
-    const isRootTarget = moveTarget === '__root__';
-    if (isRootTarget) {
-      const hasFile = selectedPaths.some((pathValue) => {
-        const node = getNodeByPath(mediaTree, pathValue);
-        return node && node.type === 'file';
-      });
-      if (hasFile) {
-        addToast('error', 'Dateien duerfen nicht in den Root-Ordner.');
-        return;
-      }
-    }
-    for (const pathValue of selectedPaths) {
-      const response = await moveMedia(pathValue, isRootTarget ? '' : moveTarget);
-      if (!response.ok) {
-        addToast('error', response.data.detail || 'Verschieben fehlgeschlagen.');
-        return;
-      }
-    }
+    addToast('success', 'Eintrag verschoben.');
+    setMoveTarget('');
+    setSelectedPaths([]);
     setActiveModal('');
-    addToast('success', 'Verschoben.');
     await handleMediaRefresh();
   }
 
   async function handleUpload(event) {
     const files = Array.from(event.target.files || []);
-    if (!currentPath) {
-      addToast('error', 'Bitte zuerst einen Ordner anlegen.');
-      event.target.value = '';
-      return;
-    }
-    if (!files.length) return;
     const audioFiles = files.filter((file) => file.type.startsWith('audio/'));
-    if (!audioFiles.length) {
-      addToast('error', 'Nur Audiodateien erlaubt.');
-      return;
-    }
-    setActiveUploadLabel(`Upload: ${audioFiles.length} Datei(en)`);
+    if (!audioFiles.length) return;
     setUploadInProgress(true);
-    setUploadProgress(0);
+    setActiveUploadLabel(
+      audioFiles.length ? `Upload: ${audioFiles.length} Datei(en)` : ''
+    );
     const response = await uploadMedia(currentPath, audioFiles, (percent) =>
       setUploadProgress(percent)
     );
+    setUploadInProgress(false);
+    setUploadProgress(0);
     if (!response.ok) {
+      setMediaError(response.data.detail || 'Upload fehlgeschlagen.');
       addToast('error', response.data.detail || 'Upload fehlgeschlagen.');
-      setUploadInProgress(false);
-      setActiveUploadLabel('');
       return;
     }
-    setUploadInProgress(false);
-    setActiveUploadLabel('');
     addToast('success', 'Upload abgeschlossen.');
     await handleMediaRefresh();
   }
 
   function handleSelect(item, event) {
     const itemPath = item.path || '';
-    if (Date.now() - lastDblClickRef.current < 250) {
-      return;
-    }
-    if (event && event.shiftKey && lastAnchorRef.current) {
-      const node = getNodeByPath(mediaTree, currentPath);
-      const visible = listChildren(node).map((child) => child.path || '');
-      const start = visible.indexOf(lastAnchorRef.current);
-      const end = visible.indexOf(itemPath);
-      if (start !== -1 && end !== -1) {
-        const [from, to] = start < end ? [start, end] : [end, start];
-        setSelectedPaths(visible.slice(from, to + 1));
-        lastAnchorRef.current = itemPath;
+    if (event.shiftKey && lastAnchorRef.current) {
+      const items = listChildren(getNodeByPath(mediaTree, currentPath));
+      const anchorIndex = items.findIndex((entry) => entry.path === lastAnchorRef.current);
+      const currentIndex = items.findIndex((entry) => entry.path === itemPath);
+      if (anchorIndex !== -1 && currentIndex !== -1) {
+        const [start, end] = anchorIndex < currentIndex
+          ? [anchorIndex, currentIndex]
+          : [currentIndex, anchorIndex];
+        const range = items.slice(start, end + 1).map((entry) => entry.path || '');
+        setSelectedPaths(Array.from(new Set([...selectedPaths, ...range])));
         return;
       }
     }
-    if (event && (event.metaKey || event.ctrlKey)) {
+    if (event.metaKey || event.ctrlKey) {
       setSelectedPaths((prev) =>
         prev.includes(itemPath)
-          ? prev.filter((p) => p !== itemPath)
+          ? prev.filter((pathValue) => pathValue !== itemPath)
           : [...prev, itemPath]
       );
       lastAnchorRef.current = itemPath;
       return;
     }
-    setSelectedPaths([itemPath]);
-    setRenameName(item.name || '');
-    lastAnchorRef.current = itemPath;
+    const now = Date.now();
+    const isDoubleClick = now - lastDblClickRef.current < 250;
+    if (!isDoubleClick) {
+      setSelectedPaths([itemPath]);
+      lastAnchorRef.current = itemPath;
+    }
   }
 
   function handleDragSelect(item) {
@@ -936,7 +993,6 @@ export default function App() {
       addToast('error', assigned.data.detail || 'Zuordnung fehlgeschlagen.');
       return;
     }
-    setError('');
     addToast('success', 'Tag geschrieben und zugeordnet.');
     const updated = await getTags();
     if (updated.ok) {
@@ -957,7 +1013,6 @@ export default function App() {
       addToast('error', response.data.detail || 'Tag schreiben fehlgeschlagen.');
       return;
     }
-    setError('');
     addToast('success', 'Tag geschrieben.');
     const updated = await getTags();
     if (updated.ok) {
@@ -965,15 +1020,34 @@ export default function App() {
     }
   }
 
-  async function handleAssignFromScan() {
-    if (!selectedId) {
-      setError('Bitte zuerst eine Box auswaehlen.');
-      addToast('error', 'Bitte zuerst eine Box auswaehlen.');
+  async function handleStoreTagOnly() {
+    if (!activeNfc?.uid) {
+      setError('Keine UID erkannt.');
+      addToast('error', 'Keine UID erkannt.');
       return;
     }
+    const existing = tags.find((tag) => tag.uid === activeNfc.uid);
+    if (existing) {
+      addToast('success', 'Tag ist bereits in der Datenbank.');
+      return;
+    }
+    const response = await claimTag(activeNfc.uid, '');
+    if (!response.ok) {
+      setError(response.data.detail || 'Tag speichern fehlgeschlagen.');
+      addToast('error', response.data.detail || 'Tag speichern fehlgeschlagen.');
+      return;
+    }
+    addToast('success', 'Tag in der Datenbank gespeichert.');
+    const updated = await getTags();
+    if (updated.ok) {
+      setTags(updated.data.tags || []);
+    }
+  }
+
+  async function handleAssignFromScan() {
     if (!scanMediaPath) {
-      setError('Bitte Medienordner waehlen.');
-      addToast('error', 'Bitte Medienordner waehlen.');
+      setError('Bitte zuerst einen Medienordner waehlen.');
+      addToast('error', 'Bitte zuerst einen Medienordner waehlen.');
       return;
     }
     const uid = scanTagUid.trim();
@@ -982,13 +1056,12 @@ export default function App() {
       addToast('error', 'Bitte zuerst eine Tag-ID schreiben.');
       return;
     }
-    const existing = tags.find((tag) => tag.uid === uid);
-    if (!existing) {
+    const matching = tags.find((tag) => tag.uid === uid);
+    if (!matching) {
       setError('Tag-ID existiert nicht. Bitte zuerst schreiben.');
       addToast('error', 'Tag-ID existiert nicht. Bitte zuerst schreiben.');
       return;
     }
-
     const mediaSet = await setTagMedia(uid, scanMediaPath);
     if (!mediaSet.ok) {
       setError(mediaSet.data.detail || 'Medium setzen fehlgeschlagen.');
@@ -1001,8 +1074,6 @@ export default function App() {
       addToast('error', assigned.data.detail || 'Zuordnung fehlgeschlagen.');
       return;
     }
-
-    setError('');
     addToast('success', 'Tag zugeordnet.');
     setScanTagUid('');
     setScanTagLabel('');
@@ -1028,45 +1099,6 @@ export default function App() {
       addToast('error', 'Kein Tag ausgewaehlt.');
       return;
     }
-    if (!importTargetFolder.trim()) {
-      setError('Bitte Ordnernamen eingeben.');
-      addToast('error', 'Bitte Ordnernamen eingeben.');
-      return;
-    }
-    if (uploadInProgress) {
-      addToast('error', 'Es laeuft bereits ein Upload/Transfer.');
-      return;
-    }
-    const startTransferProgress = () => {
-      setActiveUploadLabel(`Uebertragung: ${importTargetFolder.trim()}`);
-      setUploadInProgress(true);
-      setUploadProgress(5);
-      if (transferTimerRef.current) {
-        clearInterval(transferTimerRef.current);
-      }
-      transferTimerRef.current = setInterval(() => {
-        setUploadProgress((prev) => (prev < 90 ? prev + 5 : prev));
-      }, 400);
-    };
-    const stopTransferProgress = (success) => {
-      if (transferTimerRef.current) {
-        clearInterval(transferTimerRef.current);
-        transferTimerRef.current = null;
-      }
-      if (success) {
-        setUploadProgress(100);
-        setTimeout(() => {
-          setUploadInProgress(false);
-          setUploadProgress(0);
-          setActiveUploadLabel('');
-        }, 600);
-        return;
-      }
-      setUploadInProgress(false);
-      setUploadProgress(0);
-      setActiveUploadLabel('');
-    };
-    startTransferProgress();
     const response = await pullTagFromBox(
       selectedId,
       importTargetUid,
@@ -1075,17 +1107,15 @@ export default function App() {
     if (!response.ok) {
       setError(response.data.detail || 'Import fehlgeschlagen.');
       addToast('error', response.data.detail || 'Import fehlgeschlagen.');
-      stopTransferProgress(false);
       return;
     }
     addToast('success', 'Medien vom Box-Tag uebertragen.');
-    setImportTargetFolder('');
     setImportTargetUid('');
+    setImportTargetFolder('');
     setActiveModal('');
-    stopTransferProgress(true);
-    const updatedTags = await getTags();
-    if (updatedTags.ok) {
-      setTags(updatedTags.data.tags || []);
+    const updated = await getTags();
+    if (updated.ok) {
+      setTags(updated.data.tags || []);
     }
     const updatedLocal = await getBoxLocalTags(selectedId);
     if (updatedLocal.ok) {
@@ -1095,15 +1125,13 @@ export default function App() {
   }
 
   async function handleUnassignTag(uid) {
-    if (!selectedId) return;
     const response = await unassignTag(uid, selectedId);
     if (!response.ok) {
-      setError(response.data.detail || 'Zuordnung loeschen fehlgeschlagen.');
-      addToast('error', response.data.detail || 'Zuordnung loeschen fehlgeschlagen.');
+      setError(response.data.detail || 'Tag loesen fehlgeschlagen.');
+      addToast('error', response.data.detail || 'Tag loesen fehlgeschlagen.');
       return;
     }
-    setError('');
-    addToast('success', 'Zuordnung entfernt.');
+    addToast('success', 'Tag getrennt.');
     const updated = await getBoxTags(selectedId);
     if (updated.ok) {
       setBoxTags(updated.data.tags || []);
@@ -1117,7 +1145,6 @@ export default function App() {
       addToast('error', response.data.detail || 'Tag loeschen fehlgeschlagen.');
       return;
     }
-    setError('');
     addToast('success', 'Tag geloescht.');
     const updatedTags = await getTags();
     if (updatedTags.ok) {
@@ -1154,25 +1181,18 @@ export default function App() {
       addToast('error', response.data.detail || 'Medium setzen fehlgeschlagen.');
       return;
     }
-    let assigned = null;
     const lastNfcUid = status?.last_nfc?.uid || '';
     const shouldAssign =
       selectedId &&
       status?.last_nfc?.known === false &&
-      ((lastNfcUid && lastNfcUid === uid) ||
-        (!lastNfcUid && scanTagUid && scanTagUid === uid));
+      (lastNfcUid === uid || (!lastNfcUid && scanTagUid && scanTagUid === uid));
     if (shouldAssign) {
-      assigned = await assignTag(uid, selectedId);
+      const assigned = await assignTag(uid, selectedId);
       if (!assigned.ok) {
         setError(assigned.data.detail || 'Zuordnung fehlgeschlagen.');
         addToast('error', assigned.data.detail || 'Zuordnung fehlgeschlagen.');
         return;
       }
-    }
-    setError('');
-    if (!mediaPath) {
-      addToast('success', 'Medium entfernt.');
-    } else if (assigned) {
       addToast('success', 'Medium gespeichert und Tag zugeordnet.');
     } else {
       addToast('success', 'Medium gespeichert.');
@@ -1297,11 +1317,633 @@ export default function App() {
   const mediaBytes = mediaTree?.size ?? null;
   const freeBytes = mediaTree?.free_bytes ?? null;
 
+  const activeMeta = useMemo(
+    () => NAV_ITEMS.find((item) => item.id === activeSection),
+    [activeSection]
+  );
+  const activeNfc = useMemo(() => {
+    if (status?.last_nfc && status.last_nfc.known === false) {
+      return { ...status.last_nfc, at: status.last_nfc_at };
+    }
+    return simulatedNfc;
+  }, [status, simulatedNfc]);
+  const statusWithHardware = useMemo(() => {
+    if (!status) return null;
+    const hardwareUid =
+      lastHardwareUid.uid === status?.last_nfc?.uid && lastHardwareUid.hardwareUid
+        ? lastHardwareUid.hardwareUid
+        : activeNfc?.hardwareUid || null;
+    if (!status.last_nfc) return status;
+    return {
+      ...status,
+      last_nfc: {
+        ...status.last_nfc,
+        hardware_uid: hardwareUid,
+      },
+    };
+  }, [status, lastHardwareUid, activeNfc]);
+
+  function renderSection() {
+    if (activeSection === 'dashboard') {
+      return (
+        <div className="section-stack">
+          <StatGrid items={dashboardStats} />
+          <div className="split-grid">
+            <Card className="wide-card">
+              <h3>Live-Status</h3>
+              {!selectedId && <p className="muted">Waehle eine gepairte Box aus.</p>}
+              {selectedId && !status && <p className="muted">Status wird geladen...</p>}
+              {status && status.error && <p className="error">{status.error}</p>}
+              {status && !status.error && (
+                <pre className="status">{JSON.stringify(statusWithHardware, null, 2)}</pre>
+              )}
+            </Card>
+            <Card className="wide-card">
+              <h3>Commands</h3>
+              <div className="controls">
+                <button type="button" onClick={() => handleCommand('play_pause')}>Play/Pause</button>
+                <button type="button" onClick={() => handleCommand('next')}>Next</button>
+                <button type="button" onClick={() => handleCommand('prev')}>Prev</button>
+                <button type="button" onClick={() => handleCommand('vol_up')}>Vol +</button>
+                <button type="button" onClick={() => handleCommand('vol_down')}>Vol -</button>
+                <button type="button" onClick={() => handleCommand('stop')}>Stop</button>
+              </div>
+              <div className="controls">
+                <input
+                  value={nfcUid}
+                  onChange={(event) => setNfcUid(event.target.value)}
+                  placeholder="UID_1"
+                />
+                <button type="button" onClick={() => handleCommand('nfc_on', { uid: nfcUid })}>
+                  NFC on
+                </button>
+                <button type="button" onClick={() => handleCommand('nfc_off', { uid: nfcUid })}>
+                  NFC off
+                </button>
+              </div>
+              <p className="muted">
+                Steuerung ist nur moeglich, wenn die Box gepairt ist.
+              </p>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeSection === 'boxes') {
+      return (
+        <div className="section-stack legacy">
+          <div className="split-grid">
+            <Card className="panel-card">
+              <h3>Neue Boxen</h3>
+              {unpaired.length === 0 && <p className="muted">Keine neuen Boxen.</p>}
+              {unpaired.map((box) => (
+                <div key={box.box_id} className="card">
+                  <div>
+                    <strong>{box.alias || box.box_id}</strong>
+                    <div className="meta">Zuletzt gesehen: {formatTime(box.last_seen)}</div>
+                    <div className="meta">Firmware: {box.firmware_version}</div>
+                    <div className="meta">ID: {box.box_id}</div>
+                  </div>
+                  <button type="button" onClick={() => handlePair(box.box_id)}>Pairen</button>
+                </div>
+              ))}
+            </Card>
+            <Card className="panel-card">
+              <h3>Gepairte Boxen</h3>
+              {paired.length === 0 && <p className="muted">Noch keine gepairten Boxen.</p>}
+              {paired.map((box) => (
+                <div
+                  key={box.box_id}
+                  className={`card ${selectedId === box.box_id ? 'selected' : ''}`}
+                  onClick={() => setSelectedId(box.box_id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') setSelectedId(box.box_id);
+                  }}
+                >
+                  <div>
+                    <strong>{box.alias || box.box_id}</strong>
+                    <div className="meta">Zuletzt gesehen: {formatTime(box.last_seen)}</div>
+                    <div className="meta">Capabilities: {parseCapabilities(box.capabilities_json)}</div>
+                    <div className="meta">ID: {box.box_id}</div>
+                  </div>
+                  <div className="stack">
+                    <input
+                      className="alias-input"
+                      placeholder="Alias"
+                      value={
+                        boxAliasDrafts[box.box_id] !== undefined
+                          ? boxAliasDrafts[box.box_id]
+                          : box.alias || ''
+                      }
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => {
+                        event.stopPropagation();
+                        setBoxAliasDrafts((prev) => ({
+                          ...prev,
+                          [box.box_id]: event.target.value,
+                        }));
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="icon-button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleSaveBoxAlias(box.box_id);
+                      }}
+                      title="Alias speichern"
+                    >
+                      <FloppyDisk size={16} />
+                    </button>
+                    <span className="pill">{box.state}</span>
+                    <button
+                      type="button"
+                      className="button-ghost"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleUnpair(box.box_id);
+                      }}
+                    >
+                      Unpair
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeSection === 'media') {
+      return (
+        <div className="section-stack legacy">
+          <Card className="panel-card">
+            <div className="panel-header">
+              <h3>Medien Explorer</h3>
+              <button type="button" className="button-ghost" onClick={handleMediaRefresh}>
+                Refresh
+              </button>
+            </div>
+            {uploadInProgress && (
+              <div className="upload-status">
+                <span>{activeUploadLabel || 'Upload laeuft...'}</span>
+                <div className="upload-progress">
+                  <div style={{ width: `${uploadProgress}%` }} />
+                </div>
+              </div>
+            )}
+            <p className="muted">Ordnerverwaltung, Upload und Datei-Listen im Server-Medienordner.</p>
+            {mediaError && <p className="error">{mediaError}</p>}
+            {!mediaError && !mediaTree && <p className="muted">Medienliste wird geladen...</p>}
+            {!mediaError && mediaTree && (
+              <div className="explorer" ref={explorerRef}>
+                <div className="explorer-sidebar">
+                  <div className="explorer-toolbar sidebar-toolbar">
+                    <input
+                      className="sidebar-search"
+                      type="search"
+                      placeholder="Suchen..."
+                      value={sidebarQuery}
+                      onChange={(event) => setSidebarQuery(event.target.value)}
+                      aria-label="Ordner suchen"
+                    />
+                  </div>
+                  <div className="sidebar-tree">
+                    {topLevelFolders.length === 0 && (
+                      <div className="muted">Keine Ordner gefunden.</div>
+                    )}
+                    {filteredTree && renderFolderTree(filteredTree, 0)}
+                  </div>
+                </div>
+                <div className="explorer-main">
+                  <div className="explorer-toolbar">
+                    <button type="button" className="icon-button" onClick={handleGoUp} title="Hoch">
+                      <ArrowUp size={16} />
+                    </button>
+                    <div className="explorer-path">
+                      <span
+                        className="breadcrumb-root path-link"
+                        onClick={() => setCurrentPath('')}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') setCurrentPath('');
+                        }}
+                      >
+                        media
+                      </span>
+                      {buildBreadcrumb(currentPath).map((crumb) => (
+                        <span
+                          key={crumb.path}
+                          className="path-link"
+                          onClick={() => setCurrentPath(crumb.path)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') setCurrentPath(crumb.path);
+                          }}
+                        >
+                          / {crumb.name}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="toolbar-actions">
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => setActiveModal('new-folder')}
+                        title="Neuer Ordner"
+                      >
+                        <Plus size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => setActiveModal('rename')}
+                        title="Umbenennen"
+                        disabled={selectedPaths.length !== 1}
+                      >
+                        <PencilSimple size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button danger"
+                        onClick={() => setActiveModal('delete')}
+                        title="Loeschen"
+                        disabled={selectedPaths.length === 0}
+                      >
+                        <Trash size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => {
+                          setMoveTarget('');
+                          setActiveModal('move');
+                        }}
+                        title="Verschieben"
+                        disabled={selectedPaths.length === 0}
+                      >
+                        <ArrowRight size={16} />
+                      </button>
+                      <label
+                        className="icon-button upload"
+                        title="Upload"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setUploadAfterCreate(true);
+                          setPendingUploadFiles([]);
+                          setNewFolderName('');
+                          setActiveModal('new-folder');
+                        }}
+                      >
+                        <UploadSimple size={16} />
+                      </label>
+                    </div>
+                  </div>
+                  <div className={`explorer-list ${showMeta ? 'has-meta' : ''}`}>
+                    <div className="explorer-row header">
+                      <span>Name</span>
+                      {showMeta ? (
+                        <>
+                          <span>Interpret</span>
+                          <span>Titel</span>
+                          <span>Laenge</span>
+                          <span>Groesse</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Typ</span>
+                          <span>Groesse</span>
+                        </>
+                      )}
+                    </div>
+                    {currentItems.map((item) => (
+                      <div
+                        key={item.path || item.name}
+                        className={`explorer-row ${
+                          isSelected(item.path) ? 'selected' : ''
+                        }`}
+                        onMouseDown={(event) => {
+                          if (event.button !== 0) return;
+                          if (event.metaKey || event.ctrlKey || event.shiftKey) {
+                            return;
+                          }
+                          dragSelectRef.current = true;
+                          handleSelect(item, event);
+                        }}
+                        onMouseEnter={() => handleDragSelect(item)}
+                        onClick={(event) => handleSelect(item, event)}
+                        onDoubleClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          lastDblClickRef.current = Date.now();
+                          handleOpen(item);
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') handleOpen(item);
+                        }}
+                      >
+                        <span className="row-name">
+                          <span className="row-icon">
+                            {item.type === 'folder' ? (
+                              <Folder size={16} weight="fill" />
+                            ) : (
+                              <FileAudio size={16} />
+                            )}
+                          </span>
+                          {item.name}
+                        </span>
+                        {showMeta ? (
+                          <>
+                            <span>{item.type === 'folder' ? '-' : item.artist || '-'}</span>
+                            <span>{item.type === 'folder' ? '-' : item.title || '-'}</span>
+                            <span>
+                              {item.type === 'folder' ? '-' : formatDuration(item.duration)}
+                            </span>
+                            <span>{formatSize(item.size)}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>{item.type === 'folder' ? 'Ordner' : 'Datei'}</span>
+                            <span>{formatSize(item.size)}</span>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                    {selectedPaths.length > 0 && (
+                      <div className="explorer-row footer">
+                        <span />
+                        {showMeta ? (
+                          <>
+                            <span />
+                            <span />
+                            <span />
+                            <span className="footer-count">
+                              {selectedPaths.length} ausgewaehlt
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span />
+                            <span className="footer-count">
+                              {selectedPaths.length} ausgewaehlt
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="explorer-footer">
+                  <span>
+                    Medienordner: {formatSize(mediaBytes)} · Verfuegbar:{' '}
+                    {formatSize(freeBytes)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+      );
+    }
+
+    if (activeSection === 'tags') {
+      return (
+        <div className="section-stack legacy">
+          <Card className="panel-card">
+            <div className="panel-header">
+              <h3>Tags nur auf dieser Box</h3>
+            </div>
+            {localBoxError && <p className="error">{localBoxError}</p>}
+            {!localBoxError && localBoxTags.length === 0 && (
+              <p className="muted">Keine lokalen Tags ohne Server-Zuordnung.</p>
+            )}
+            {localBoxTags.map((tag) => (
+              <div key={tag.uid} className="box-tag-row">
+                <div>
+                  <strong>{tag.uid}</strong>
+                  <div className="muted">
+                    Dateien: {tag.file_count} · {formatSize(tag.total_size)}
+                  </div>
+                  {tag.media_exists && tag.files?.length > 0 && (
+                    <ul className="file-list">
+                      {tag.files.map((file) => (
+                        <li key={file}>{file}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {!tag.media_exists && (
+                    <p className="muted">Keine Dateien im Box-Ordner gefunden.</p>
+                  )}
+                </div>
+                <div className="box-tag-actions">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImportTargetUid(tag.uid);
+                      setActiveModal('import-tag');
+                    }}
+                    disabled={!tag.media_exists}
+                  >
+                    Auf Server uebertragen
+                  </button>
+                </div>
+              </div>
+            ))}
+          </Card>
+
+          <Card className="panel-card">
+            <h3>Tags (Datenbank)</h3>
+            {tags.length === 0 && <p className="muted">Keine Tags vorhanden.</p>}
+            {tags.map((tag) => (
+              <div key={tag.uid} className="card compact">
+                <div className="tag-row">
+                  <div className="tag-info">
+                    <strong>
+                      {tag.alias ? `${tag.alias} (${tag.uid})` : tag.uid}
+                    </strong>
+                    <div className="meta">Status: {tag.status}</div>
+                    <div className="meta">Medium: {tag.media_path || '-'}</div>
+                    {tag.label ? <div className="meta">Label: {tag.label}</div> : null}
+                  </div>
+                  <div className="stack stack-inline">
+                    <input
+                      className="alias-input"
+                      placeholder="Alias"
+                      value={
+                        tagAliasDrafts[tag.uid] !== undefined
+                          ? tagAliasDrafts[tag.uid]
+                          : tag.alias || ''
+                      }
+                      onChange={(event) =>
+                        setTagAliasDrafts((prev) => ({
+                          ...prev,
+                          [tag.uid]: event.target.value,
+                        }))
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="icon-button"
+                      onClick={() => handleSaveTagAlias(tag.uid)}
+                      title="Alias speichern"
+                    >
+                      <FloppyDisk size={16} />
+                    </button>
+                    <select
+                      value={dbTagMedia[tag.uid] ?? tag.media_path ?? ''}
+                      onChange={(event) =>
+                        setDbTagMedia((prev) => ({
+                          ...prev,
+                          [tag.uid]: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="" disabled>
+                        Medienordner waehlen
+                      </option>
+                      {collectTopLevelFolders(mediaTree).map((folderPath) => (
+                        <option key={folderPath} value={folderPath}>
+                          {folderPath}
+                        </option>
+                      ))}
+                    </select>
+                    {dbTagMedia[tag.uid] !== undefined &&
+                    dbTagMedia[tag.uid] !== (tag.media_path ?? '') ? (
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => handleSetTagMedia(tag.uid)}
+                        disabled={!mediaTree}
+                        title="Medium speichern"
+                      >
+                        <FloppyDisk size={16} />
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="icon-button danger"
+                      onClick={() => {
+                        setTagDeleteTarget(tag.uid);
+                        setActiveModal('tag-delete');
+                      }}
+                      title="Loeschen"
+                    >
+                      <Trash size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </Card>
+
+          <Card className="panel-card">
+            <h3>Tag-Matrix (Sperren)</h3>
+            {paired.length === 0 && (
+              <p className="muted">Keine gepairten Boxen vorhanden.</p>
+            )}
+            {tags.length === 0 && <p className="muted">Keine Tags vorhanden.</p>}
+            {paired.length > 0 && tags.length > 0 && (
+              <div className="tag-matrix">
+                <div className="matrix-row header">
+                  <span className="matrix-cell label">Tag</span>
+                  {paired.map((box) => (
+                    <span key={box.box_id} className="matrix-cell">
+                      {box.alias || box.box_id}
+                    </span>
+                  ))}
+                </div>
+                {tags.map((tag) => (
+                  <div key={tag.uid} className="matrix-row">
+                    <span className="matrix-cell label">{tag.alias || tag.uid}</span>
+                    {paired.map((box) => {
+                      const blocked = (blockedByBox[box.box_id] || []).includes(tag.uid);
+                      return (
+                        <label key={box.box_id} className="matrix-cell toggle">
+                          <input
+                            type="checkbox"
+                            checked={blocked}
+                            onChange={(event) =>
+                              handleToggleTagBlock(
+                                box.box_id,
+                                tag.uid,
+                                event.target.checked
+                              )
+                            }
+                          />
+                          <span>{blocked ? 'Gesperrt' : 'OK'}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      );
+    }
+
+    return (
+      <div className="section-stack">
+        <Card className="wide-card">
+          <h3>System</h3>
+          <p>Backend: {import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:5001'}</p>
+          <div className="settings-row">
+            <span>Gepairte Boxen</span>
+            <span>{paired.length}</span>
+          </div>
+          <div className="settings-row">
+            <span>Tags</span>
+            <span>{tags.length}</span>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="page">
-      <header>
-        <h1>Klangkiste Control Panel</h1>
-        <p>Backend: {import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:5001'}</p>
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="brand">
+          <div className="brand-mark">K</div>
+          <div>
+            <strong>Klangkiste</strong>
+            <span>PrimeReact GUI</span>
+          </div>
+        </div>
+        <div className="mobile-actions">
+          <Button
+            icon="pi pi-users"
+            text
+            rounded
+            aria-label="Aktive Sessions"
+            onClick={() => setShowSessionSheet(true)}
+          />
+        </div>
+        <div className="topbar-search">
+          <span className="p-input-icon-left">
+            <i className="pi pi-search" />
+            <InputText
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              placeholder="Suche nach Boxen, Tags oder Medien"
+            />
+          </span>
+        </div>
+        <div className="topbar-actions">
+          <Tag value="Online" severity="success" rounded />
+          <Button icon="pi pi-bell" text rounded aria-label="Benachrichtigungen" />
+          <Avatar label="MK" shape="circle" className="user-avatar" />
+        </div>
       </header>
 
       <div className="toast-container">
@@ -1312,132 +1954,234 @@ export default function App() {
         ))}
       </div>
 
-      {error && <div className="error">{error}</div>}
-
-      <section className="grid">
-        <div className="panel">
-          <h2>Neue Boxen</h2>
-          {unpaired.length === 0 && <p className="muted">Keine neuen Boxen.</p>}
-          {unpaired.map((box) => (
-            <div key={box.box_id} className="card">
-              <div>
-                <strong>{box.alias || box.box_id}</strong>
-                <div className="meta">Zuletzt gesehen: {formatTime(box.last_seen)}</div>
-                <div className="meta">Firmware: {box.firmware_version}</div>
-                <div className="meta">ID: {box.box_id}</div>
-              </div>
-              <button onClick={() => handlePair(box.box_id)}>Pairen</button>
-            </div>
-          ))}
-        </div>
-
-        <div className="panel">
-          <h2>Gepairte Boxen</h2>
-          {paired.length === 0 && <p className="muted">Noch keine gepairten Boxen.</p>}
-          {paired.map((box) => (
-            <div
-              key={box.box_id}
-              className={`card ${selectedId === box.box_id ? 'selected' : ''}`}
-              onClick={() => setSelectedId(box.box_id)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') setSelectedId(box.box_id);
-              }}
-            >
-              <div>
-                <strong>{box.alias || box.box_id}</strong>
-                <div className="meta">Zuletzt gesehen: {formatTime(box.last_seen)}</div>
-                <div className="meta">Capabilities: {parseCapabilities(box.capabilities_json)}</div>
-                <div className="meta">ID: {box.box_id}</div>
-              </div>
-              <div className="stack">
-                <input
-                  className="alias-input"
-                  placeholder="Alias"
-                  value={
-                    boxAliasDrafts[box.box_id] !== undefined
-                      ? boxAliasDrafts[box.box_id]
-                      : box.alias || ''
-                  }
-                  onClick={(event) => event.stopPropagation()}
-                  onChange={(event) => {
-                    event.stopPropagation();
-                    setBoxAliasDrafts((prev) => ({
-                      ...prev,
-                      [box.box_id]: event.target.value,
-                    }));
-                  }}
+      <div className="layout">
+        <aside className="sidebar">
+          <div className="sidebar-section">
+            <p className="sidebar-title">Navigation</p>
+            <div className="nav-list">
+              {NAV_ITEMS.map((item) => (
+                <Button
+                  key={item.id}
+                  label={item.label}
+                  icon={item.icon}
+                  text
+                  className={`nav-button${activeSection === item.id ? ' active' : ''}`}
+                  onClick={() => setActiveSection(item.id)}
                 />
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleSaveBoxAlias(box.box_id);
-                  }}
-                  title="Alias speichern"
-                >
-                  <FloppyDisk size={16} />
-                </button>
-                <span className="pill">{box.state}</span>
-                <button
-                  type="button"
-                  className="button-ghost"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleUnpair(box.box_id);
-                  }}
-                >
-                  Unpair
-                </button>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+          <Divider />
+          <div className="sidebar-section">
+            <p className="sidebar-title">Quick Actions</p>
+            <div className="button-stack">
+              <Button label="NFC Tag erstellen" icon="pi pi-plus" className="p-button-sm" />
+              <Button label="Upload starten" icon="pi pi-upload" outlined className="p-button-sm" />
+              <Button label="Box koppeln" icon="pi pi-link" text className="p-button-sm" />
+            </div>
+          </div>
+          <Divider />
+          <div className="sidebar-section">
+            <p className="sidebar-title">Aktive Sessions</p>
+            {paired.length === 0 && (
+              <p className="muted">Keine gepairten Boxen.</p>
+            )}
+            <div className="session-list">
+              {paired.map((box) => {
+                const isActive = selectedId === box.box_id;
+                const label = (box.alias || box.box_id || '').slice(0, 2).toUpperCase();
+                return (
+                  <button
+                    key={box.box_id}
+                    type="button"
+                    className={`session-card${isActive ? ' active' : ''}`}
+                    onClick={() => setSelectedId(box.box_id)}
+                    title={`Aktiv setzen: ${box.alias || box.box_id}`}
+                  >
+                    <Avatar label={label || 'BX'} shape="circle" />
+                    <div>
+                      <strong>{box.alias || box.box_id}</strong>
+                      <span>{isActive ? 'Aktiv' : 'Bereit'}</span>
+                    </div>
+                    <Badge value={box.state === 'PAIRED' ? 'OK' : box.state} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
 
-      <section className="grid">
-        <div className="panel">
-          <h2>Live-Status</h2>
-          {!selectedId && <p className="muted">Waehle eine gepairte Box aus.</p>}
-          {selectedId && !status && <p className="muted">Status wird geladen...</p>}
-          {status && status.error && <p className="error">{status.error}</p>}
-          {status && !status.error && (
-            <pre className="status">{JSON.stringify(status, null, 2)}</pre>
+        <main className="content">
+          <SectionHeader
+            title={activeMeta?.label || 'Bereich'}
+            subtitle="Live Daten und Steuerung der Klangkiste."
+            actions={
+              <>
+                <Button label="Export" icon="pi pi-download" outlined className="p-button-sm" />
+                <Button label="Neuer Flow" icon="pi pi-plus" className="p-button-sm" />
+              </>
+            }
+          />
+          {error && <div className="error">{error}</div>}
+          {activeNfc && (
+            <div className="legacy">
+              <Card className="panel-card">
+                <h3>
+                  {activeNfc.uid &&
+                  tags.find((tag) => tag.uid === activeNfc.uid && !tag.media_path)
+                    ? 'Leerer Tag erkannt'
+                    : 'Neuer Tag erkannt'}
+                </h3>
+                <p className="muted">
+                  {activeNfc.uid ? (
+                    <>
+                      UID erkannt: <strong>{activeNfc.uid}</strong>
+                    </>
+                  ) : (
+                    <>keine UID erkannt</>
+                  )}
+                </p>
+                {activeNfc.uid &&
+                lastHardwareUid.uid === activeNfc.uid &&
+                lastHardwareUid.hardwareUid && (
+                  <p className="muted">
+                    Hardware-UID erkannt: <strong>{lastHardwareUid.hardwareUid}</strong>
+                  </p>
+                )}
+                {!activeNfc.uid && activeNfc.hardwareUid && (
+                  <p className="muted">
+                    Hardware-UID erkannt: <strong>{activeNfc.hardwareUid}</strong>
+                  </p>
+                )}
+                {activeNfc.uid && tags.find((tag) => tag.uid === activeNfc.uid) && (
+                  <p className="muted">
+                    Dieser Tag ist bekannt, aber noch nicht zugewiesen.
+                  </p>
+                )}
+                {!activeNfc.uid ? (
+                  <div className="controls">
+                    <input value={scanTagUid} readOnly placeholder="Neue Tag-ID (10 Zeichen)" />
+                    <input
+                      value={scanTagLabel}
+                      onChange={(event) => setScanTagLabel(event.target.value)}
+                      placeholder="Label (optional)"
+                    />
+                    <button type="button" className="button-ghost" onClick={handleClaimTagForScan}>
+                      ID zuweisen & schreiben
+                    </button>
+                  </div>
+                ) : null}
+                {tags.some((tag) => tag.status === 'IMPORTED') && (
+                  <div className="controls">
+                    <select
+                      value={reuseTagUid}
+                      onChange={(event) => setReuseTagUid(event.target.value)}
+                    >
+                      <option value="" disabled>
+                        Gespeicherte Tag-ID waehlen
+                      </option>
+                      {tags
+                        .filter((tag) => tag.status === 'IMPORTED')
+                        .map((tag) => (
+                          <option key={tag.uid} value={tag.uid}>
+                            {tag.alias ? `${tag.alias} (${tag.uid})` : tag.uid}
+                          </option>
+                        ))}
+                    </select>
+                    <button type="button" onClick={handleReuseImportedTag}>
+                      Vorhandene ID schreiben
+                    </button>
+                  </div>
+                )}
+                <div className="controls">
+                  <select
+                    value={scanMediaPath}
+                    onChange={(event) => setScanMediaPath(event.target.value)}
+                  >
+                    <option value="" disabled>
+                      Medienordner waehlen
+                    </option>
+                  {collectTopLevelFolders(mediaTree).map((folderPath) => (
+                    <option key={folderPath} value={folderPath}>
+                      {folderPath}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleAssignFromScan}
+                  disabled={
+                    !tags.find(
+                      (tag) => tag.uid === scanTagUid && tag.status !== 'NEW'
+                    )
+                  }
+                >
+                  Medien zuordnen
+                </button>
+                {activeNfc.uid && activeNfc.known === false && (
+                  <button type="button" className="button-ghost" onClick={handleStoreTagOnly}>
+                    Nur in die DB uebernehmen
+                  </button>
+                )}
+              </div>
+            </Card>
+          </div>
           )}
-        </div>
+          {renderSection()}
+        </main>
 
-        <div className="panel">
-          <h2>Commands</h2>
-          <div className="controls">
-            <button onClick={() => handleCommand('play_pause')}>Play/Pause</button>
-            <button onClick={() => handleCommand('next')}>Next</button>
-            <button onClick={() => handleCommand('prev')}>Prev</button>
-            <button onClick={() => handleCommand('vol_up')}>Vol +</button>
-            <button onClick={() => handleCommand('vol_down')}>Vol -</button>
-            <button onClick={() => handleCommand('stop')}>Stop</button>
-          </div>
-          <div className="controls">
-            <input
-              value={nfcUid}
-              onChange={(event) => setNfcUid(event.target.value)}
-              placeholder="UID_1"
-            />
-            <button onClick={() => handleCommand('nfc_on', { uid: nfcUid })}>
-              NFC on
-            </button>
-            <button onClick={() => handleCommand('nfc_off', { uid: nfcUid })}>
-              NFC off
-            </button>
-          </div>
-          <p className="muted">
-            Steuerung ist nur moeglich, wenn die Box gepairt ist.
-          </p>
-        </div>
-      </section>
+        <aside className="right-panel">
+          <Card className="panel-card">
+            <div className="card-title-row">
+              <h3>Live Status</h3>
+              <Tag value="Stable" severity="success" />
+            </div>
+            <p>System Health und wichtige Events.</p>
+            <div className="status-row">
+              <span>API</span>
+              <Tag value="OK" severity="success" />
+            </div>
+            <div className="status-row">
+              <span>Speicher</span>
+              <Tag value={mediaTree ? formatSize(mediaTree.free_bytes) : '-'} severity="warning" />
+            </div>
+            <div className="status-row">
+              <span>Letzter Sync</span>
+              <span>{status?.last_sync_at ? formatTime(status.last_sync_at) : '-'}</span>
+            </div>
+            <div className="status-row">
+              <span>Hardware-UID</span>
+              <span>
+                {lastHardwareUid.uid === status?.last_nfc?.uid && lastHardwareUid.hardwareUid
+                  ? lastHardwareUid.hardwareUid
+                  : activeNfc?.hardwareUid || '-'}
+              </span>
+            </div>
+          </Card>
+          <Card className="panel-card">
+            <h3>Prioritaet</h3>
+            <div className="panel-pill">Tag Serien planen</div>
+            <div className="panel-pill">Box 02 koppeln</div>
+            <div className="panel-pill">Uploads pruefen</div>
+          </Card>
+        </aside>
+      </div>
 
-      {activeModal && (
+      <nav className="bottom-nav">
+        {NAV_ITEMS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={activeSection === item.id ? 'active' : ''}
+            onClick={() => setActiveSection(item.id)}
+          >
+            <i className={item.icon} />
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {activeModal === 'new-folder' && (
         <div
           className="modal-backdrop"
           onClick={() => {
@@ -1452,228 +2196,246 @@ export default function App() {
             onClick={(event) => event.stopPropagation()}
             ref={modalRef}
           >
-            {activeModal === 'new-folder' && (
+            <h3>{uploadAfterCreate ? 'Upload vorbereiten' : 'Neuen Ordner anlegen'}</h3>
+            <input
+              value={newFolderName}
+              onChange={(event) => setNewFolderName(event.target.value)}
+              placeholder={
+                uploadAfterCreate
+                  ? 'Optionaler Ordnername (leer = aktueller Ordner)'
+                  : 'Ordnername'
+              }
+            />
+            {uploadAfterCreate && (
               <>
-                <h3>{uploadAfterCreate ? 'Upload vorbereiten' : 'Neuen Ordner anlegen'}</h3>
-                <input
-                  value={newFolderName}
-                  onChange={(event) => setNewFolderName(event.target.value)}
-                  placeholder={
-                    uploadAfterCreate
-                      ? 'Optionaler Ordnername (leer = aktueller Ordner)'
-                      : 'Ordnername'
-                  }
-                />
-                {uploadAfterCreate && (
-                  <>
-                    <div
-                      className={`upload-dropzone ${uploadInProgress ? 'disabled' : ''}`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        if (uploadInProgress) return;
-                        uploadDropInputRef.current?.click();
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') uploadDropInputRef.current?.click();
-                      }}
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                      }}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        if (uploadInProgress) return;
-                        const files = Array.from(event.dataTransfer.files || []);
-                        const audioFiles = files.filter((file) =>
-                          file.type.startsWith('audio/')
-                        );
-                        setPendingUploadFiles(audioFiles);
-                        setActiveUploadLabel(
-                          audioFiles.length
-                            ? `Upload: ${audioFiles.length} Datei(en)`
-                            : ''
-                        );
-                      }}
-                    >
-                      <div className="dropzone-title">Audiodateien auswaehlen</div>
-                      <div className="dropzone-hint">
-                        Datei hier ablegen oder klicken, um auszuwaehlen
-                      </div>
-                      {pendingUploadFiles.length > 0 && (
-                        <div className="dropzone-files">
-                          {pendingUploadFiles.map((file) => (
-                            <div key={file.name}>{file.name}</div>
-                          ))}
-                        </div>
-                      )}
-                      <input
-                        ref={uploadDropInputRef}
-                        type="file"
-                        multiple
-                        accept="audio/*"
-                        onChange={(event) => {
-                          const files = Array.from(event.target.files || []);
-                          const audioFiles = files.filter((file) =>
-                            file.type.startsWith('audio/')
-                          );
-                          setPendingUploadFiles(audioFiles);
-                          setActiveUploadLabel(
-                            audioFiles.length
-                              ? `Upload: ${audioFiles.length} Datei(en)`
-                              : ''
-                          );
-                        }}
-                      />
-                    </div>
-                    <p className="muted">
-                      Upload startet direkt. Ohne Ordnername landet er im aktuellen Ordner.
-                    </p>
-                    {uploadInProgress && (
-                      <div className="upload-progress">
-                        <div style={{ width: `${uploadProgress}%` }} />
-                      </div>
-                    )}
-                  </>
-                )}
-                <div className="modal-actions">
-                  <button
-                    type="button"
-                    className="button-ghost"
-                    onClick={() => {
-                      setActiveModal('');
-                      setUploadAfterCreate(false);
-                      setPendingUploadFiles([]);
-                      setActiveUploadLabel('');
-                    }}
-                  >
-                    Abbrechen
-                  </button>
-                  <button type="button" onClick={handleCreateFolder} disabled={uploadInProgress}>
-                    Anlegen
-                  </button>
-                </div>
-              </>
-            )}
-            {activeModal === 'rename' && (
-              <>
-                <h3>Umbenennen</h3>
-                <input
-                  value={renameName}
-                  onChange={(event) => setRenameName(event.target.value)}
-                  placeholder="Neuer Name"
-                />
-                <div className="modal-actions">
-                  <button type="button" className="button-ghost" onClick={() => setActiveModal('')}>
-                    Abbrechen
-                  </button>
-                  <button type="button" onClick={handleRename}>
-                    Speichern
-                  </button>
-                </div>
-              </>
-            )}
-            {activeModal === 'delete' && (
-              <>
-                <h3>Loeschen</h3>
-                <p className="muted">
-                  {selectedPaths.length} Eintrag(e) wirklich loeschen?
-                </p>
-                <div className="modal-actions">
-                  <button type="button" className="button-ghost" onClick={() => setActiveModal('')}>
-                    Abbrechen
-                  </button>
-                  <button type="button" onClick={handleDeleteSelected}>
-                    Loeschen
-                  </button>
-                </div>
-              </>
-            )}
-            {activeModal === 'move' && (
-              <>
-                <h3>Verschieben</h3>
-                {selectedPaths.length > 0 &&
-                  selectedPaths.every((pathValue) => {
-                    const node = getNodeByPath(mediaTree, pathValue);
-                    return node && node.type === 'file';
-                  }) && (
-                    <p className="muted">
-                      Dateien duerfen nicht in den Root-Ordner verschoben werden.
-                    </p>
-                  )}
-                <select
-                  value={moveTarget}
-                  onChange={(event) => setMoveTarget(event.target.value)}
+                <div
+                  className={`upload-dropzone ${uploadInProgress ? 'disabled' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    if (uploadInProgress) return;
+                    uploadDropInputRef.current?.click();
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') uploadDropInputRef.current?.click();
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (uploadInProgress) return;
+                    const files = Array.from(event.dataTransfer.files || []);
+                    const audioFiles = files.filter((file) =>
+                      file.type.startsWith('audio/')
+                    );
+                    setPendingUploadFiles(audioFiles);
+                    setActiveUploadLabel(
+                      audioFiles.length
+                        ? `Upload: ${audioFiles.length} Datei(en)`
+                        : ''
+                    );
+                  }}
                 >
-                  <option value="">Zielordner waehlen</option>
-                  {selectedPaths.length > 0 &&
-                  selectedPaths.every((pathValue) => {
-                    const node = getNodeByPath(mediaTree, pathValue);
-                    return node && node.type === 'folder';
-                  }) ? (
-                    <option value="__root__">media (Root)</option>
-                  ) : null}
-                  {collectFolderPaths(mediaTree)
-                    .filter((pathValue) => pathValue && pathValue !== currentPath)
-                    .map((folderPath) => (
-                      <option key={folderPath} value={folderPath}>
-                        {folderPath}
-                      </option>
-                    ))}
-                </select>
-                <div className="modal-actions">
-                  <button type="button" className="button-ghost" onClick={() => setActiveModal('')}>
-                    Abbrechen
-                  </button>
-                  <button type="button" onClick={handleMoveSelected}>
-                    Verschieben
-                  </button>
+                  <div className="dropzone-title">Audiodateien auswaehlen</div>
+                  <div className="dropzone-hint">
+                    Datei hier ablegen oder klicken, um auszuwaehlen
+                  </div>
                 </div>
+                {pendingUploadFiles.length > 0 && (
+                  <p className="muted">
+                    {pendingUploadFiles.length} Datei(en) bereit.
+                  </p>
+                )}
+                <input
+                  type="file"
+                  multiple
+                  accept="audio/*"
+                  ref={uploadDropInputRef}
+                  style={{ display: 'none' }}
+                  onChange={(event) => {
+                    const files = Array.from(event.target.files || []);
+                    const audioFiles = files.filter((file) =>
+                      file.type.startsWith('audio/')
+                    );
+                    setPendingUploadFiles(audioFiles);
+                    setActiveUploadLabel(
+                      audioFiles.length
+                        ? `Upload: ${audioFiles.length} Datei(en)`
+                        : ''
+                    );
+                  }}
+                />
               </>
             )}
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="button-ghost"
+                onClick={() => {
+                  setActiveModal('');
+                  setUploadAfterCreate(false);
+                  setPendingUploadFiles([]);
+                  setTagDeleteTarget('');
+                }}
+              >
+                Abbrechen
+              </button>
+              <button type="button" onClick={handleCreateFolder}>
+                {uploadAfterCreate ? 'Upload starten' : 'Ordner anlegen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'rename' && (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            setActiveModal('');
+            setRenameName('');
+          }}
+        >
+          <div
+            className="modal-card"
+            onClick={(event) => event.stopPropagation()}
+            ref={modalRef}
+          >
+            <h3>Umbenennen</h3>
+            <input
+              value={renameName}
+              onChange={(event) => setRenameName(event.target.value)}
+              placeholder="Neuer Name"
+            />
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="button-ghost"
+                onClick={() => {
+                  setActiveModal('');
+                  setRenameName('');
+                }}
+              >
+                Abbrechen
+              </button>
+              <button type="button" onClick={handleRename}>
+                Speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'delete' && (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            setActiveModal('');
+          }}
+        >
+          <div
+            className="modal-card"
+            onClick={(event) => event.stopPropagation()}
+            ref={modalRef}
+          >
+            <h3>Eintraege loeschen</h3>
+            <p className="muted">{selectedPaths.length} Eintraege werden geloescht.</p>
+            <div className="modal-actions">
+              <button type="button" className="button-ghost" onClick={() => setActiveModal('')}>
+                Abbrechen
+              </button>
+              <button type="button" onClick={handleDeleteSelected}>
+                Loeschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'move' && (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            setActiveModal('');
+            setMoveTarget('');
+          }}
+        >
+          <div
+            className="modal-card"
+            onClick={(event) => event.stopPropagation()}
+            ref={modalRef}
+          >
+            <h3>Verschieben</h3>
+            <select value={moveTarget} onChange={(event) => setMoveTarget(event.target.value)}>
+              <option value="" disabled>
+                Zielordner waehlen
+              </option>
+              <option value="__root__">media/</option>
+              {collectFolderPaths(mediaTree).map((folder) => (
+                <option key={folder} value={folder}>
+                  {folder}
+                </option>
+              ))}
+            </select>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="button-ghost"
+                onClick={() => {
+                  setActiveModal('');
+                  setMoveTarget('');
+                }}
+              >
+                Abbrechen
+              </button>
+              <button type="button" onClick={handleMoveSelected}>
+                Verschieben
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeModal === 'tag-delete' && (
-              <>
-                <h3>Tag entfernen</h3>
-                <p className="muted">
-                  Was moechtest du entfernen?
-                </p>
-                <div className="modal-actions">
-                  <button
-                    type="button"
-                    className="button-ghost"
-                    onClick={() => {
-                      setActiveModal('');
-                      setTagDeleteTarget('');
-                    }}
-                  >
-                    Abbrechen
-                  </button>
-                  <button
-                    type="button"
-                    className="button-ghost"
-                    onClick={async () => {
-                      if (!tagDeleteTarget) return;
-                      await handleClearTagMedia(tagDeleteTarget);
-                      setActiveModal('');
-                      setTagDeleteTarget('');
-                    }}
-                  >
-                    Medienzuweisung loeschen
-                  </button>
-                  <button
-                    type="button"
-                    className="button-ghost"
-                    onClick={async () => {
-                      if (!tagDeleteTarget) return;
-                      await handleDeleteTag(tagDeleteTarget);
-                      setActiveModal('');
-                      setTagDeleteTarget('');
-                    }}
-                  >
-                    Tag loeschen
-                  </button>
-                </div>
-              </>
-            )}
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            setActiveModal('');
+            setTagDeleteTarget('');
+          }}
+        >
+          <div
+            className="modal-card"
+            onClick={(event) => event.stopPropagation()}
+            ref={modalRef}
+          >
+            <h3>Tag entfernen</h3>
+            <p className="muted">Der Tag wird komplett geloescht.</p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="button-ghost"
+                onClick={() => {
+                  setActiveModal('');
+                  setTagDeleteTarget('');
+                }}
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!tagDeleteTarget) return;
+                  await handleClearTagMedia(tagDeleteTarget);
+                  await handleDeleteTag(tagDeleteTarget);
+                  setTagDeleteTarget('');
+                  setActiveModal('');
+                }}
+              >
+                Tag loeschen
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1720,488 +2482,57 @@ export default function App() {
         </div>
       )}
 
-      {status?.last_nfc && status.last_nfc.known === false && status.last_nfc.uid && (
-        <section className="panel">
-          <h2>
-            {tags.find((tag) => tag.uid === status.last_nfc.uid && !tag.media_path)
-              ? 'Leerer Tag erkannt'
-              : 'Neuer Tag erkannt'}
-          </h2>
-          <p className="muted">
-            UID erkannt: <strong>{status.last_nfc.uid || '-'}</strong>
-          </p>
-          {tags.find((tag) => tag.uid === status.last_nfc.uid) && (
-            <p className="muted">
-              Dieser Tag ist bekannt, aber noch nicht zugewiesen.
-            </p>
-          )}
-          {!tags.find((tag) => tag.uid === status.last_nfc.uid && !tag.media_path) && (
-            <div className="controls">
-              <input value={scanTagUid} readOnly placeholder="Neue Tag-ID (10 Zeichen)" />
-              <input
-                value={scanTagLabel}
-                onChange={(event) => setScanTagLabel(event.target.value)}
-                placeholder="Label (optional)"
-              />
-              <button type="button" className="button-ghost" onClick={handleClaimTagForScan}>
-                ID zuweisen & schreiben
+      {showSessionSheet && (
+        <div
+          className="sheet-backdrop"
+          onClick={() => setShowSessionSheet(false)}
+        >
+          <div
+            className="sheet-card"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="sheet-header">
+              <strong>Aktive Sessions</strong>
+              <button type="button" className="icon-button" onClick={() => setShowSessionSheet(false)}>
+                <i className="pi pi-times" />
               </button>
             </div>
-          )}
-          {tags.some((tag) => tag.status === 'IMPORTED') && (
-            <div className="controls">
-              <select
-                value={reuseTagUid}
-                onChange={(event) => setReuseTagUid(event.target.value)}
-              >
-                <option value="" disabled>
-                  Gespeicherte Tag-ID waehlen
-                </option>
-                {tags
-                  .filter((tag) => tag.status === 'IMPORTED')
-                  .map((tag) => (
-                    <option key={tag.uid} value={tag.uid}>
-                      {tag.alias ? `${tag.alias} (${tag.uid})` : tag.uid}
-                    </option>
-                  ))}
-              </select>
-              <button type="button" onClick={handleReuseImportedTag}>
-                Vorhandene ID schreiben
-              </button>
+            {paired.length === 0 && (
+              <p className="muted">Keine gepairten Boxen.</p>
+            )}
+            <div className="session-list">
+              {paired.map((box) => {
+                const isActive = selectedId === box.box_id;
+                const label = (box.alias || box.box_id || '').slice(0, 2).toUpperCase();
+                return (
+                  <button
+                    key={box.box_id}
+                    type="button"
+                    className={`session-card${isActive ? ' active' : ''}`}
+                    onClick={() => {
+                      setSelectedId(box.box_id);
+                      setShowSessionSheet(false);
+                    }}
+                  >
+                    <Avatar label={label || 'BX'} shape="circle" />
+                    <div>
+                      <strong>{box.alias || box.box_id}</strong>
+                      <span>{isActive ? 'Aktiv' : 'Bereit'}</span>
+                    </div>
+                    <Badge value={box.state === 'PAIRED' ? 'OK' : box.state} />
+                  </button>
+                );
+              })}
             </div>
-          )}
-          <div className="controls">
-            <select
-              value={scanMediaPath}
-              onChange={(event) => setScanMediaPath(event.target.value)}
-            >
-              <option value="" disabled>
-                Medienordner waehlen
-              </option>
-              {collectTopLevelFolders(mediaTree).map((folderPath) => (
-                <option key={folderPath} value={folderPath}>
-                  {folderPath}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={handleAssignFromScan}
-              disabled={
-                !tags.find(
-                  (tag) => tag.uid === scanTagUid && tag.status !== 'NEW'
-                )
-              }
-            >
-              Medien zuordnen
-            </button>
+            <Divider />
+            <div className="button-stack">
+              <Button label="NFC Tag erstellen" icon="pi pi-plus" className="p-button-sm" />
+              <Button label="Upload starten" icon="pi pi-upload" outlined className="p-button-sm" />
+              <Button label="Box koppeln" icon="pi pi-link" text className="p-button-sm" />
+            </div>
           </div>
-        </section>
+        </div>
       )}
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>Medien Explorer</h2>
-          <button type="button" className="button-ghost" onClick={handleMediaRefresh}>
-            Refresh
-          </button>
-        </div>
-        {uploadInProgress && (
-          <div className="upload-status">
-            <span>{activeUploadLabel || 'Upload laeuft...'}</span>
-            <div className="upload-progress">
-              <div style={{ width: `${uploadProgress}%` }} />
-            </div>
-          </div>
-        )}
-        <p className="muted">Ordnerverwaltung, Upload und Datei-Listen im Server-Medienordner.</p>
-        {mediaError && <p className="error">{mediaError}</p>}
-        {!mediaError && !mediaTree && <p className="muted">Medienliste wird geladen...</p>}
-        {!mediaError && mediaTree && (
-          <div className="explorer" ref={explorerRef}>
-            <div className="explorer-sidebar">
-              <div className="explorer-toolbar sidebar-toolbar">
-                <input
-                  className="sidebar-search"
-                  type="search"
-                  placeholder="Suchen..."
-                  value={sidebarQuery}
-                  onChange={(event) => setSidebarQuery(event.target.value)}
-                  aria-label="Ordner suchen"
-                />
-              </div>
-              <div className="sidebar-tree">
-                {topLevelFolders.length === 0 && (
-                  <div className="muted">Keine Ordner gefunden.</div>
-                )}
-                {filteredTree && renderFolderTree(filteredTree, 0)}
-              </div>
-            </div>
-            <div className="explorer-main">
-              <div className="explorer-toolbar">
-                <button type="button" className="icon-button" onClick={handleGoUp} title="Hoch">
-                  <ArrowUp size={16} />
-                </button>
-                <div className="explorer-path">
-                  <span
-                    className="breadcrumb-root path-link"
-                    onClick={() => setCurrentPath('')}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') setCurrentPath('');
-                    }}
-                  >
-                    media
-                  </span>
-                  {buildBreadcrumb(currentPath).map((crumb) => (
-                    <span
-                      key={crumb.path}
-                      className="path-link"
-                      onClick={() => setCurrentPath(crumb.path)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') setCurrentPath(crumb.path);
-                      }}
-                    >
-                      / {crumb.name}
-                    </span>
-                  ))}
-                </div>
-                <div className="toolbar-actions">
-                  <button
-                    type="button"
-                    className="icon-button"
-                    onClick={() => setActiveModal('new-folder')}
-                    title="Neuer Ordner"
-                  >
-                    <Plus size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    onClick={() => setActiveModal('rename')}
-                    title="Umbenennen"
-                    disabled={selectedPaths.length !== 1}
-                  >
-                    <PencilSimple size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button danger"
-                    onClick={() => setActiveModal('delete')}
-                    title="Loeschen"
-                    disabled={selectedPaths.length === 0}
-                  >
-                    <Trash size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    onClick={() => {
-                      setMoveTarget('');
-                      setActiveModal('move');
-                    }}
-                    title="Verschieben"
-                    disabled={selectedPaths.length === 0}
-                  >
-                    <ArrowRight size={16} />
-                  </button>
-                  <label
-                    className="icon-button upload"
-                    title="Upload"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      setUploadAfterCreate(true);
-                      setPendingUploadFiles([]);
-                      setNewFolderName('');
-                      setActiveModal('new-folder');
-                    }}
-                  >
-                    <UploadSimple size={16} />
-                  </label>
-                </div>
-              </div>
-              <div className={`explorer-list ${showMeta ? 'has-meta' : ''}`}>
-                <div className="explorer-row header">
-                  <span>Name</span>
-                  {showMeta ? (
-                    <>
-                      <span>Interpret</span>
-                      <span>Titel</span>
-                      <span>Länge</span>
-                      <span>Größe</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Typ</span>
-                      <span>Größe</span>
-                    </>
-                  )}
-                </div>
-                {currentItems.map((item) => (
-                  <div
-                    key={item.path || item.name}
-                    className={`explorer-row ${
-                      isSelected(item.path) ? 'selected' : ''
-                    }`}
-                    onMouseDown={(event) => {
-                      if (event.button !== 0) return;
-                      if (event.metaKey || event.ctrlKey || event.shiftKey) {
-                        return;
-                      }
-                      dragSelectRef.current = true;
-                      handleSelect(item, event);
-                    }}
-                    onMouseEnter={() => handleDragSelect(item)}
-                    onClick={(event) => handleSelect(item, event)}
-                    onDoubleClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      lastDblClickRef.current = Date.now();
-                      handleOpen(item);
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') handleOpen(item);
-                    }}
-                  >
-                    <span className="row-name">
-                      <span className="row-icon">
-                        {item.type === 'folder' ? (
-                          <Folder size={16} weight="fill" />
-                        ) : (
-                          <FileAudio size={16} />
-                        )}
-                      </span>
-                      {item.name}
-                    </span>
-                    {showMeta ? (
-                      <>
-                        <span>{item.type === 'folder' ? '-' : item.artist || '-'}</span>
-                        <span>{item.type === 'folder' ? '-' : item.title || '-'}</span>
-                        <span>
-                          {item.type === 'folder' ? '-' : formatDuration(item.duration)}
-                        </span>
-                        <span>{formatSize(item.size)}</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>{item.type === 'folder' ? 'Ordner' : 'Datei'}</span>
-                        <span>{formatSize(item.size)}</span>
-                      </>
-                    )}
-                  </div>
-                ))}
-                {selectedPaths.length > 0 && (
-                  <div className="explorer-row footer">
-                    <span />
-                    {showMeta ? (
-                      <>
-                        <span />
-                        <span />
-                        <span />
-                        <span className="footer-count">
-                          {selectedPaths.length} ausgewaehlt
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span />
-                        <span className="footer-count">
-                          {selectedPaths.length} ausgewaehlt
-                        </span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="explorer-footer">
-              <span>
-                Medienordner: {formatSize(mediaBytes)} · Verfügbar:{' '}
-                {formatSize(freeBytes)}
-              </span>
-            </div>
-          </div>
-        )}
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>Tags nur auf dieser Box</h2>
-        </div>
-        {localBoxError && <p className="error">{localBoxError}</p>}
-        {!localBoxError && localBoxTags.length === 0 && (
-          <p className="muted">Keine lokalen Tags ohne Server-Zuordnung.</p>
-        )}
-        {localBoxTags.map((tag) => (
-          <div key={tag.uid} className="box-tag-row">
-            <div>
-              <strong>{tag.uid}</strong>
-              <div className="muted">
-                Dateien: {tag.file_count} · {formatSize(tag.total_size)}
-              </div>
-              {tag.media_exists && tag.files?.length > 0 && (
-                <ul className="file-list">
-                  {tag.files.map((file) => (
-                    <li key={file}>{file}</li>
-                  ))}
-                </ul>
-              )}
-              {!tag.media_exists && (
-                <p className="muted">Keine Dateien im Box-Ordner gefunden.</p>
-              )}
-            </div>
-            <div className="box-tag-actions">
-              <button
-                type="button"
-                onClick={() => {
-                  setImportTargetUid(tag.uid);
-                  setActiveModal('import-tag');
-                }}
-                disabled={!tag.media_exists}
-              >
-                Auf Server uebertragen
-              </button>
-            </div>
-          </div>
-        ))}
-      </section>
-
-      <section className="grid">
-        <div className="panel">
-          <h2>Tags (Datenbank)</h2>
-          {tags.length === 0 && <p className="muted">Keine Tags vorhanden.</p>}
-          {tags.map((tag) => (
-            <div key={tag.uid} className="card compact">
-              <div className="tag-row">
-                <div className="tag-info">
-                  <strong>
-                    {tag.alias ? `${tag.alias} (${tag.uid})` : tag.uid}
-                  </strong>
-                  <div className="meta">Status: {tag.status}</div>
-                  <div className="meta">Medium: {tag.media_path || '-'}</div>
-                  {tag.label ? <div className="meta">Label: {tag.label}</div> : null}
-                </div>
-                <div className="stack stack-inline">
-                  <input
-                    className="alias-input"
-                    placeholder="Alias"
-                    value={
-                      tagAliasDrafts[tag.uid] !== undefined
-                        ? tagAliasDrafts[tag.uid]
-                        : tag.alias || ''
-                    }
-                    onChange={(event) =>
-                      setTagAliasDrafts((prev) => ({
-                        ...prev,
-                        [tag.uid]: event.target.value,
-                      }))
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="icon-button"
-                    onClick={() => handleSaveTagAlias(tag.uid)}
-                    title="Alias speichern"
-                  >
-                    <FloppyDisk size={16} />
-                  </button>
-                  <select
-                    value={dbTagMedia[tag.uid] ?? tag.media_path ?? ''}
-                    onChange={(event) =>
-                      setDbTagMedia((prev) => ({
-                        ...prev,
-                        [tag.uid]: event.target.value,
-                      }))
-                    }
-                  >
-                    <option value="" disabled>
-                      Medienordner waehlen
-                    </option>
-                    {collectTopLevelFolders(mediaTree).map((folderPath) => (
-                      <option key={folderPath} value={folderPath}>
-                        {folderPath}
-                      </option>
-                    ))}
-                  </select>
-                  {dbTagMedia[tag.uid] !== undefined &&
-                  dbTagMedia[tag.uid] !== (tag.media_path ?? '') ? (
-                    <button
-                      type="button"
-                      className="icon-button"
-                      onClick={() => handleSetTagMedia(tag.uid)}
-                      disabled={!mediaTree}
-                      title="Medium speichern"
-                    >
-                      <FloppyDisk size={16} />
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="icon-button danger"
-                    onClick={() => {
-                      setTagDeleteTarget(tag.uid);
-                      setActiveModal('tag-delete');
-                    }}
-                    title="Loeschen"
-                  >
-                    <Trash size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel">
-        <h2>Tag-Matrix (Sperren)</h2>
-        {paired.length === 0 && (
-          <p className="muted">Keine gepairten Boxen vorhanden.</p>
-        )}
-        {tags.length === 0 && <p className="muted">Keine Tags vorhanden.</p>}
-          {paired.length > 0 && tags.length > 0 && (
-            <div className="tag-matrix">
-              <div className="matrix-row header">
-                <span className="matrix-cell label">Tag</span>
-                {paired.map((box) => (
-                  <span key={box.box_id} className="matrix-cell">
-                    {box.alias || box.box_id}
-                  </span>
-                ))}
-              </div>
-              {tags.map((tag) => (
-                <div key={tag.uid} className="matrix-row">
-                  <span className="matrix-cell label">{tag.alias || tag.uid}</span>
-                  {paired.map((box) => {
-                    const blocked = (blockedByBox[box.box_id] || []).includes(tag.uid);
-                  return (
-                    <label key={box.box_id} className="matrix-cell toggle">
-                      <input
-                        type="checkbox"
-                        checked={blocked}
-                        onChange={(event) =>
-                          handleToggleTagBlock(
-                            box.box_id,
-                            tag.uid,
-                            event.target.checked
-                          )
-                        }
-                      />
-                      <span>{blocked ? 'Gesperrt' : 'OK'}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 }

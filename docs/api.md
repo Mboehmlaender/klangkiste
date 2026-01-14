@@ -32,6 +32,7 @@ Felder:
 - `last_nfc`:
   - `uid`: letzte erkannte UID oder `null`
   - `known`: `true` wenn Tag in der Box zugeordnet ist
+- `blocked_tags`: Liste gesperrter Tag-UIDs
 - `playback_state`:
   - `state`: `IDLE | PLAYING | PAUSED`
   - `active_uid`
@@ -53,6 +54,7 @@ Beispielantwort:
   "connected_ssid": "HomeWiFi",
   "wifi_profiles_count": 1,
   "spotify_status": "READY",
+  "blocked_tags": [],
   "playback_state": {
     "state": "PLAYING",
     "active_uid": "UID_1",
@@ -65,6 +67,14 @@ Beispielantwort:
     "last_error": null
   }
 }
+```
+
+## GET /local-tags
+Nur fuer gepairte Boxen (Header: `X-API-Token`).
+Zeigt lokale Tags, inkl. Dateiliste und Groesse.
+```
+curl http://127.0.0.1:8000/local-tags \
+  -H "X-API-Token: <api_token>"
 ```
 
 ## POST /command
@@ -95,10 +105,17 @@ Unterstuetzte Commands:
 - `unpair`
 - `tag_assign` `{ uid, media_path }`
 - `tag_remove` `{ uid }`
+- `tag_block` `{ uid }`
+- `tag_unblock` `{ uid }`
+- `export_tag` `{ uid, target_folder }`
+- `factory_reset`
 
 ## Tag-Commands
 - `tag_assign` `{ uid, media_path }` weist ein Tag einem Medienordner zu.
 - `tag_remove` `{ uid }` entfernt die Zuordnung fuer ein Tag.
+- `tag_block` sperrt den Tag fuer diese Box.
+- `tag_unblock` hebt die Sperre auf.
+- `export_tag` uebertraegt die lokalen Medien dieses Tags an den Server.
 
 ## Auth fuer Commands
 - Vor Pairing sind nur diese Commands erlaubt:

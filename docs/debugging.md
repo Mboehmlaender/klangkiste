@@ -17,7 +17,9 @@ Nutze die Sektionen nach Symptomen.
 curl http://127.0.0.1:5001/api/boxes
 ```
 - GUI API-Base pruefen:
-  - `VITE_BACKEND_URL` oder Default `http://127.0.0.1:5001`
+  - GUI nutzt `/api/...` und Vite-Proxy.
+  - `VITE_BACKEND_URL` zeigt auf das Backend (ohne `/api`).
+  - Reverse-Proxy: `/api` muss auf Port 5001 zeigen (ohne doppeltes `/api`).
 
 ### Playback startet nicht
 - Tags pruefen:
@@ -32,6 +34,9 @@ ls -la gui/backend/media
 ```
 curl http://127.0.0.1:8000/status
 ```
+- Tag lokal vorhanden, aber nicht in DB:
+  - GUI: "Tags nur auf dieser Box" pruefen.
+  - Import ueber "Auf Server uebertragen".
 
 ### Resume bleibt leer
 - State pruefen:

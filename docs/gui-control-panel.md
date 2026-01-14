@@ -14,18 +14,31 @@ Nutzung des Frontend Control Panels zur Steuerung und Beobachtung der Boxen uebe
 http://127.0.0.1:5174
 ```
 2) In "Neue Boxen" die Box auswaehlen und "Pairen" klicken.
-3) In "Gepairte Boxen" eine Box anklicken.
+3) In der Sidebar unter "Aktive Sessions" eine Box aktiv setzen (gilt fuer alle Seiten).
 4) Status und Commands nutzen.
 
 ## Controls (im GUI vorhanden)
 - Pairen (Button in "Neue Boxen")
-- Statusanzeige (automatisch)
+- Statusanzeige (automatisch, Polling)
 - Play/Pause, Next, Prev, Vol +/-, Stop
-- NFC on/off (UID eingeben)
+- NFC on/off (UID manuell eingeben; kein Auto-Fill)
 - Unpair (Button in "Gepairte Boxen")
-- Medienkatalog (Explorer-Ansicht, nur Lesen)
-- Neuer Tag erkannt (Panel) mit ID-Zuweisung und Zuordnung
-- Tags werden nur nach NFC-Erkennung erstellt und zugeordnet.
+- Medien-Explorer (Ordner/Dateien, Upload, Rename, Move, Delete)
+- Neuer/Leerer Tag erkannt (Panel)
+  - Wenn keine UID erkannt: ID zuweisen & schreiben
+  - Wenn UID erkannt, `known=false`: nur Medienordnerwahl + "Nur in die DB uebernehmen"
+  - Medienordner zuordnen
+  - Importierte Tag-IDs wiederverwenden
+- Tags (Datenbank)
+  - Alias setzen, Medium zuweisen, Tag loeschen
+- Tag-Matrix (Sperren)
+  - Tags pro Box sperren/entsperren
+- Tags nur auf dieser Box
+  - Lokale Tags ohne DB-Eintrag
+  - Dateien anzeigen
+  - Auf Server uebertragen (mit neuem Ordnernamen)
+- Mobile: Aktive Sessions als Bottom-Sheet (Topbar-Icon)
+- Hardware-UID (simuliert) wird im Tag-Panel und Live-Status angezeigt, wenn NFC on ohne UID genutzt wird
 
 ## Controls (nur Backend/API)
 - WiFi add/reset
@@ -46,6 +59,7 @@ curl -X POST http://127.0.0.1:5001/api/boxes/<box_id>/command \
 - ✅ GUI laedt und zeigt Backend-URL
 - ✅ Neue Boxen erscheinen unter "Neue Boxen"
 - ✅ Pairing verschiebt die Box in die gepaarte Liste
+- ✅ Aktive Box ist global gesetzt (Sidebar "Aktive Sessions")
 - ✅ Buttons aendern den `/status`
 
 ## Troubleshooting

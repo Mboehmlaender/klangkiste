@@ -16,7 +16,7 @@ Quickstart (3-5 Minuten):
 ```
 ./dev.sh
 ```
-2) Setup-WebGUI oeffnen:
+2) Setup-WebGUI der Box oeffnen:
 ```
 http://127.0.0.1:9000/setup
 ```
@@ -29,12 +29,18 @@ curl http://127.0.0.1:5001/api/boxes
 ```
 http://127.0.0.1:5174
 ```
+6) Tags testen:
+   - Tag auflegen
+   - Medien zuordnen
+   - Playback starten
 
 ## Troubleshooting
 - Box startet nicht:
   - Pruefe Abhaengigkeiten und ob Ports 8000/9000 frei sind.
 - GUI erreicht API nicht:
-  - Pruefe `VITE_BACKEND_URL` und Backend-Logs.
+  - Vite-Proxy: GUI ruft `/api/...` auf.
+  - Backend laeuft auf `http://127.0.0.1:5001`.
+  - Wenn Reverse-Proxy genutzt wird, `/api` auf das Backend routen.
 
 ## Was ist Mock vs. real
 - Mock: WLAN, IP, Spotify, Audio, Hardware. Diese Backends sind logische Simulationen.

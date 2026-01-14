@@ -24,7 +24,7 @@ python3 box/main.py run
 Frontend only:
 ```
 cd gui/frontend
-npm run dev -- --host 0.0.0.0 --port 5174 --strictPort
+VITE_BACKEND_URL=http://127.0.0.1:5001 npm run dev -- --host 0.0.0.0 --port 5174 --strictPort
 ```
 Backend only:
 ```
@@ -37,10 +37,12 @@ npm run dev
 - Frontend GUI: `http://127.0.0.1:5174`
 - Box API: `http://127.0.0.1:8000`
 - Setup UI: `http://127.0.0.1:9000/setup`
-- GUI: `http://127.0.0.1:5174`
+- Box2 API (optional): `http://127.0.0.1:8001`
+- Box2 Setup (optional): `http://127.0.0.1:9001/setup`
 
 ## API-URL fuer die GUI
-Default ist `http://<HOST-IP>:5001` (aus `hostname -I`). Override:
+Die GUI nutzt relative Pfade (`/api/...`) und einen Vite-Proxy.
+Der Proxy-Target wird so gesetzt:
 ```
 KLANGKISTE_BACKEND_URL=http://<server-ip>:5001 ./dev.sh
 VITE_BACKEND_URL=http://<server-ip>:5001 npm run dev
@@ -67,4 +69,5 @@ VITE_BACKEND_URL=http://<server-ip>:5001 npm run dev
 - CORS-Fehler:
   - API muss laufen und erreichbar sein.
 - GUI zeigt "Failed to fetch":
-  - `VITE_BACKEND_URL` pruefen.
+  - Vite-Proxy pruefen (`VITE_BACKEND_URL`).
+  - Reverse-Proxy: `/api` muss auf das Backend zeigen (ohne doppeltes `/api`).

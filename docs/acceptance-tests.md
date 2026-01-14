@@ -7,7 +7,11 @@ Konsistenter Testkatalog basierend auf dem aktuellen Code. Alle Tests trennen Si
 - Repo-Root
 - Python 3
 - Box API fuer Simulation: `python3 box/main.py run`
-- GUI optional: `cd gui && npm run dev`
+- GUI optional: `cd gui/frontend && npm run dev`
+- Backend optional: `cd gui/backend && npm run dev`
+
+Hinweis:
+- Sobald die Box gepairt ist, erfordern `/command` Aufrufe den Header `X-API-Token`.
 
 ## Schritt-fuer-Schritt
 Die Tests koennen einzeln oder der Reihe nach ausgefuehrt werden.

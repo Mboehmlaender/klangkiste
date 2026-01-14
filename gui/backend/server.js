@@ -479,6 +479,10 @@ async function ensureTagMediaColumn() {
   if (!hasAlias) {
     await run('ALTER TABLE tags ADD COLUMN alias TEXT');
   }
+  const hasHardwareUid = columns.some((column) => column.name === 'hardware_uid');
+  if (!hasHardwareUid) {
+    await run('ALTER TABLE tags ADD COLUMN hardware_uid TEXT');
+  }
   await run(
     `UPDATE tags
      SET media_path = (
@@ -1374,7 +1378,9 @@ app.post('/api/boxes/:box_id/tag-blocks', async (req, res) => {
 app.get('/api/tags', async (req, res) => {
   try {
     const rows = await all(
-      'SELECT uid, label, alias, status, created_at, written_at, media_path FROM tags ORDER BY created_at DESC'
+      `SELECT uid, hardware_uid, label, alias, status, created_at, written_at, media_path
+       FROM tags
+       ORDER BY created_at DESC`
     );
     res.json({ tags: rows });
   } catch (error) {
@@ -1446,7 +1452,7 @@ app.post('/api/tags/generate', async (req, res) => {
 });
 
 app.post('/api/tags/claim', async (req, res) => {
-  const { uid: requestedUid, label } = req.body || {};
+  const { uid: requestedUid, label, hardware_uid: hardwareUid } = req.body || {};
   const now = nowSeconds();
   let uid = '';
   if (typeof requestedUid === 'string' && requestedUid) {
@@ -1470,8 +1476,15 @@ app.post('/api/tags/claim', async (req, res) => {
   }
   try {
     await run(
-      'INSERT INTO tags (uid, label, status, created_at, written_at) VALUES (?, ?, ?, ?, ?)',
-      [uid, typeof label === 'string' ? label : null, 'WRITTEN', now, now]
+      'INSERT INTO tags (uid, hardware_uid, label, status, created_at, written_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        uid,
+        typeof hardwareUid === 'string' && hardwareUid ? hardwareUid : null,
+        typeof label === 'string' ? label : null,
+        'WRITTEN',
+        now,
+        now,
+      ]
     );
     res.json({ uid });
   } catch (error) {

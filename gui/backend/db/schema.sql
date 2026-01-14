@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS boxes (
 
 CREATE TABLE IF NOT EXISTS tags (
   uid TEXT PRIMARY KEY,
+  hardware_uid TEXT,
   label TEXT,
   alias TEXT,
   status TEXT NOT NULL,
