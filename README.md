@@ -5,7 +5,6 @@ Das Ziel ist eine robuste, kindgerechte Box mit einem klaren Prinzip: **Tag aufl
 
 Im Mittelpunkt stehen dabei Offenheit, Kontrolle und Langlebigkeit: keine Cloud-Zwänge, keine geschlossenen Ökosysteme, keine versteckten Abhängigkeiten.
 
----
 
 ## 🧭 Vision
 
@@ -22,7 +21,6 @@ Das Projekt setzt bewusst auf:
 Klangkiste ist kein Produkt, das ersetzt werden soll –
 sondern ein System, das mitwachsen darf.
 
---- 
 
 ## 🚀 Aktueller Funktionsumfang
 
@@ -69,7 +67,6 @@ sondern ein System, das mitwachsen darf.
 - Mehrere Boxen gleichzeitig (z. B. `box` + `box2`)  
 - Geeignet für Familien-Setups und Multi-Box-Tests  
 
----
 
 ## 🛠️ Geplante Erweiterungen
 
@@ -81,7 +78,6 @@ sondern ein System, das mitwachsen darf.
 - 🌍 Anbindung externer Server inkl. Rückführung externer Medien  
 - 🏷️ Optionale automatische Tag-Erstellung für importierte Inhalte  
 
----
 
 ## 🔍 Abgrenzung zu gängigen Audioboxen
 
@@ -93,7 +89,6 @@ Klangkiste verfolgt bewusst einen anderen Ansatz als viele kommerzielle Audiobox
 - 🧮 Fein steuerbare **Tag-Matrix pro Box**, ideal für Mehrbox-Setups  
 - 🔎 Volle Transparenz durch offene APIs und lokale Datenhaltung  
 
----
 
 ## 📍 Projektstatus
 
@@ -101,7 +96,6 @@ Klangkiste verfolgt bewusst einen anderen Ansatz als viele kommerzielle Audiobox
 Lokale Entwicklung ohne Hardware  
 (Mock-Boxen, API, GUI)
 
----
 
 ## 🗂️ Repository-Struktur
 
@@ -112,8 +106,6 @@ gui/backend/    Backend (Node.js + SQLite, Box- & Medienverwaltung)
 gui/frontend/   Control-Panel (React + Vite)
 docs/           Dev-Playbook, API-Verträge, Tests
 ```
-
----
 
 ## ⚡ Quickstart (lokal)
 
@@ -142,7 +134,6 @@ http://127.0.0.1:5174
 | Box2 API (optional)   | 8001 |
 | Box2 Setup (optional) | 9001 |
 
----
 
 ### 🧠 Entwicklungsprinzipien
 - Box und GUI/Backend teilen keinen Code
