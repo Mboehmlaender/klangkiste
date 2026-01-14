@@ -9,6 +9,8 @@ einfache Web-Oberflaeche.
 - NFC-Workflow (simuliert): Tags auflegen, Tags erkennen, Tag-IDs in der
   Datenbank speichern, Tags Medienordnern zuordnen.
 - Playback-Steuerung (simuliert): Play/Pause, Next, Prev, Stop, Volume.
+- Spotify-Anbindung (Token-Flow, Playback-Integration vorbereitet).
+- Webradio-Start ueber Tags (geplant/Workflow vorgesehen).
 - Medienverwaltung: Ordnerstruktur anzeigen, Uploads, Umbenennen, Verschieben,
   Loeschen.
 - Eigene Medienverwaltung ohne Cloud-Abhaengigkeit.
